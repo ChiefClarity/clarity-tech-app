@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { ModernInput } from '../../../../components/ui/ModernInput';
 import { ModernSelect } from '../../../../components/ui/ModernSelect';
+import { AIInsightsBox } from '../../../../components/common/AIInsightsBox';
 import { useOnboarding } from '../../../../contexts/OnboardingContext';
 import { theme } from '../../../../styles/theme';
 import { webAlert } from '../utils/webAlert';
@@ -201,7 +202,7 @@ export const PoolDetailsStep: React.FC = () => {
                   >
                     <Ionicons
                       name={shape.icon as any}
-                      size={24}
+                      size={20}
                       color={value === shape.value ? theme.colors.white : theme.colors.gray}
                     />
                     <Text style={[
@@ -296,7 +297,6 @@ export const PoolDetailsStep: React.FC = () => {
                 value={value}
                 onValueChange={onChange}
                 items={SURFACE_MATERIALS}
-                placeholder="Select surface material"
               />
             )}
           />
@@ -395,6 +395,9 @@ export const PoolDetailsStep: React.FC = () => {
           />
         </View>
         </View>
+        
+        {/* AI Insights */}
+        <AIInsightsBox stepName="poolDetails" />
       </ScrollView>
     </View>
   );
@@ -486,11 +489,13 @@ const styles = StyleSheet.create({
   shapeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: theme.spacing.sm,
+    marginHorizontal: -theme.spacing.xs,
   },
   shapeButton: {
-    width: '31%',
+    width: '30%',
     aspectRatio: 1,
+    margin: '1.66%',
+    backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.lg,
     borderWidth: 2,
     borderColor: theme.colors.border,
@@ -503,9 +508,10 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.blueGreen,
   },
   shapeButtonText: {
-    fontSize: theme.typography.small.fontSize,
-    color: theme.colors.gray,
     marginTop: theme.spacing.xs,
+    fontSize: 12,
+    color: theme.colors.text,
+    textAlign: 'center',
   },
   shapeButtonTextActive: {
     color: theme.colors.white,

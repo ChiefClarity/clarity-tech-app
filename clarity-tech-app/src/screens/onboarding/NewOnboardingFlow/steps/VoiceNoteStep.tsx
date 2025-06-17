@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { useOnboarding } from '../../../../contexts/OnboardingContext';
+import { AIInsightsBox } from '../../../../components/common/AIInsightsBox';
 import { theme } from '../../../../styles/theme';
 import { webAlert } from '../utils/webAlert';
 
@@ -323,6 +324,9 @@ export const VoiceNoteStep: React.FC = () => {
           )}
         </View>
         </View>
+        
+        {/* AI Insights */}
+        <AIInsightsBox stepName="voiceNote" />
       </ScrollView>
     </View>
   );

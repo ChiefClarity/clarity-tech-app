@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 // CRITICAL: Import EXISTING UI components - don't create new ones
 import { ModernInput } from '../../../../components/ui/ModernInput';
+import { AIInsightsBox } from '../../../../components/common/AIInsightsBox';
 import { useOnboarding } from '../../../../contexts/OnboardingContext';
 import { theme } from '../../../../styles/theme';
 
@@ -189,7 +190,6 @@ export const CustomerInfoStep: React.FC = () => {
               }}
               error={errors.phone?.message}
               keyboardType="phone-pad"
-              placeholder="(555) 123-4567"
             />
           )}
         />
@@ -278,6 +278,10 @@ export const CustomerInfoStep: React.FC = () => {
           </View>
         </View>
       </View>
+      
+      {/* AI Insights */}
+      <AIInsightsBox stepName="customer" />
+      
       </ScrollView>
     </View>
   );

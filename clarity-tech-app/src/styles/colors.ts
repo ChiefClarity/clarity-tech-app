@@ -10,6 +10,7 @@ export const Colors = {
   warning: '#F59E0B',
   black: '#000000',
   transparent: 'transparent',
+  aiPink: '#EAAAE7',
   
   // Additional shades
   darkBlueDark: '#1F2937',

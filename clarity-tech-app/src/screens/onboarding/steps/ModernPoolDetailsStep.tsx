@@ -217,6 +217,13 @@ export const ModernPoolDetailsStep = React.forwardRef<
       
       setSatelliteAnalyzed(true);
       console.log(`🛰️ [AI] Satellite analysis completed with ${Math.round(result.confidence * 100)}% confidence`);
+      
+      setAnalysisResult({
+        success: true,
+        confidence: Math.round(result.confidence * 100),
+        message: `Satellite analysis complete - ${result.surfaceArea} sq ft detected`
+      });
+      setTimeout(() => setAnalysisResult(null), 5000);
     } catch (error) {
       Alert.alert('Analysis Failed', 'Unable to analyze satellite imagery. Please enter details manually.');
     } finally {
@@ -344,7 +351,7 @@ export const ModernPoolDetailsStep = React.forwardRef<
       {/* AI Satellite Analysis */}
       <View style={styles.analysisCard}>
         <View style={styles.analysisHeader}>
-          <Ionicons name="globe" size={24} color={theme.colors.blueGreen} />
+          <Ionicons name="globe" size={24} color={theme.colors.aiPink} />
           <Text style={styles.analysisTitle}>AI Satellite Analysis</Text>
         </View>
         <Text style={styles.analysisDescription}>
@@ -357,7 +364,7 @@ export const ModernPoolDetailsStep = React.forwardRef<
           disabled={isAnalyzingSatellite}
         >
           <LinearGradient
-            colors={satelliteAnalyzed ? ['#10B981', '#059669'] : ['#3B82F6', '#1D4ED8']}
+            colors={satelliteAnalyzed ? [theme.colors.success, theme.colors.success] : [theme.colors.aiPink, theme.colors.aiPink]}
             style={styles.analysisButtonGradient}
           >
             {isAnalyzingSatellite ? (

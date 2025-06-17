@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { ModernInput } from '../../../../components/ui/ModernInput';
 import { AIPhotoAnalyzer } from '../../../../components/ui/AIPhotoAnalyzer';
+import { AIInsightsBox } from '../../../../components/common/AIInsightsBox';
 import { useOnboarding } from '../../../../contexts/OnboardingContext';
 import { theme } from '../../../../styles/theme';
 import { webAlert } from '../utils/webAlert';
@@ -47,7 +48,7 @@ const CHEMISTRY_FIELDS = [
 
 export const WaterChemistryStep: React.FC = () => {
   const { session, updateWaterChemistry, nextStep } = useOnboarding();
-  const [showOptional, setShowOptional] = useState(false);
+  // All fields are always visible now
   
   const { control, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<WaterChemistryData>({
     resolver: zodResolver(waterChemistrySchema),
@@ -65,17 +66,7 @@ export const WaterChemistryStep: React.FC = () => {
   useEffect(() => {
     if (session?.waterChemistry) {
       reset(session.waterChemistry);
-      // Show optional fields if any have values
-      const hasOptionalValues = session.waterChemistry.calcium || 
-        session.waterChemistry.salt || 
-        session.waterChemistry.tds ||
-        session.waterChemistry.temperature ||
-        session.waterChemistry.phosphates ||
-        session.waterChemistry.copper ||
-        session.waterChemistry.iron;
-      if (hasOptionalValues) {
-        setShowOptional(true);
-      }
+      // All fields are always visible now
     }
   }, [session?.waterChemistry, reset]);
   
@@ -181,24 +172,8 @@ export const WaterChemistryStep: React.FC = () => {
           </View>
         ))}
         
-        {/* Optional Fields Toggle */}
-        <TouchableOpacity
-          style={styles.optionalToggle}
-          onPress={() => setShowOptional(!showOptional)}
-        >
-          <Text style={styles.optionalToggleText}>
-            {showOptional ? 'Hide' : 'Show'} Optional Tests
-          </Text>
-          <Ionicons
-            name={showOptional ? 'chevron-up' : 'chevron-down'}
-            size={20}
-            color={theme.colors.blueGreen}
-          />
-        </TouchableOpacity>
-        
-        {/* Optional Fields */}
-        {showOptional && (
-          <View style={styles.optionalFields}>
+        {/* Additional Fields */}
+        <View style={styles.optionalFields}>
             {CHEMISTRY_FIELDS.filter(f => f.optional).map((field) => (
               <View key={field.key} style={styles.fieldContainer}>
                 <Controller
@@ -242,13 +217,14 @@ export const WaterChemistryStep: React.FC = () => {
                   onBlur={onBlur}
                   multiline
                   numberOfLines={3}
-                  placeholder="Any observations about water clarity, algae, etc."
                 />
               )}
             />
           </View>
-        )}
         </View>
+        
+        {/* AI Insights */}
+        <AIInsightsBox stepName="waterChemistry" />
       </ScrollView>
     </View>
   );

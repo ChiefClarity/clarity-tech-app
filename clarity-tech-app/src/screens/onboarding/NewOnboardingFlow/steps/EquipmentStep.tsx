@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useOnboarding } from '../../../../contexts/OnboardingContext';
 import { ModernInput } from '../../../../components/ui/ModernInput';
 import { AIPhotoAnalyzer } from '../../../../components/ui/AIPhotoAnalyzer';
+import { AIInsightsBox } from '../../../../components/common/AIInsightsBox';
 import { theme } from '../../../../styles/theme';
 import { webAlert } from '../utils/webAlert';
 
@@ -270,6 +271,9 @@ export const EquipmentStep: React.FC = () => {
         </View>
       ))}
       
+      {/* AI Insights */}
+      <AIInsightsBox stepName="equipment" />
+      
       {/* Bottom padding */}
       <View style={{ height: 100 }} />
       </ScrollView>
@@ -482,7 +486,6 @@ const FilterSection: React.FC<{ data: any; onChange: (field: string, value: any)
           label="Cartridge Model"
           value={data.cartridgeModel || ''}
           onChangeText={(text) => onChange('cartridgeModel', text)}
-          placeholder="e.g., Unicel C-4950"
         />
         <TouchableOpacity
           style={styles.checkboxRow}
@@ -864,7 +867,6 @@ const ValvesSection: React.FC<{ data: any; onChange: (field: string, value: any)
       onChangeText={(text) => onChange('valveNotes', text)}
       multiline
       numberOfLines={3}
-      placeholder="Note any leaks, difficult valves, or plumbing issues"
     />
   </>
 );
@@ -877,7 +879,6 @@ const EquipmentPadSection: React.FC<{ data: any; onChange: (field: string, value
       value={data.pressureReading || ''}
       onChangeText={(text) => onChange('pressureReading', text)}
       keyboardType="numeric"
-      placeholder="e.g., 15"
     />
 
     <ModernInput
@@ -886,7 +887,6 @@ const EquipmentPadSection: React.FC<{ data: any; onChange: (field: string, value
       onChangeText={(text) => onChange('equipmentPadNotes', text)}
       multiline
       numberOfLines={4}
-      placeholder="Overall condition, organization, accessibility, electrical concerns, etc."
     />
   </>
 );

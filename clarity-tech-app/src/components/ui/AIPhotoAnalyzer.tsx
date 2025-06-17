@@ -99,7 +99,7 @@ export const AIPhotoAnalyzer: React.FC<AIPhotoAnalyzerProps> = ({
           onPress={handlePhotoCapture}
         >
           <LinearGradient
-            colors={['#F97316', '#EA580C']}
+            colors={[theme.colors.aiPink, theme.colors.aiPink]}
             style={styles.captureGradient}
           >
             <Ionicons name="camera" size={32} color="white" />
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   },
   addMoreButton: {
     borderWidth: 2,
-    borderColor: theme.colors.blueGreen,
+    borderColor: theme.colors.aiPink,
     borderStyle: 'dashed',
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.md,
@@ -222,6 +222,6 @@ const styles = StyleSheet.create({
   addMoreText: {
     fontSize: theme.typography.body.fontSize,
     fontWeight: '600',
-    color: theme.colors.blueGreen,
+    color: theme.colors.aiPink,
   },
 });
