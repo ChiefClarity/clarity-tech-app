@@ -128,15 +128,16 @@ export const NewOnboardingFlow: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.white,
+    backgroundColor: '#F8F9FA', // Slightly off-white background like old version
   },
   content: {
     flex: 1,
+    padding: theme.spacing.lg,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.white,
+    backgroundColor: '#F8F9FA',
   },
 });

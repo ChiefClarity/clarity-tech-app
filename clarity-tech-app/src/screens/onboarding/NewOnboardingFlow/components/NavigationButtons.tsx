@@ -28,7 +28,7 @@ export const NavigationButtons: React.FC<NavigationButtonsProps> = ({
       {/* Back Button */}
       <TouchableOpacity
         onPress={previousStep}
-        style={[styles.navButton, styles.backButton]}
+        style={[styles.navButton, styles.backNavButton]}
         disabled={currentStep === 0}
       >
         <Ionicons 
@@ -37,7 +37,7 @@ export const NavigationButtons: React.FC<NavigationButtonsProps> = ({
           color={currentStep === 0 ? theme.colors.gray : theme.colors.blueGreen} 
         />
         <Text style={[
-          styles.backButtonText,
+          styles.navButtonText,
           currentStep === 0 && styles.disabledText
         ]}>
           Previous
@@ -50,15 +50,15 @@ export const NavigationButtons: React.FC<NavigationButtonsProps> = ({
         disabled={!canNavigateForward || saving}
         style={[
           styles.navButton,
-          styles.continueButton,
-          (!canNavigateForward || saving) && styles.continueButtonDisabled
+          styles.nextButton,
+          (!canNavigateForward || saving) && styles.nextButtonDisabled
         ]}
       >
         {saving ? (
           <ActivityIndicator size="small" color="white" />
         ) : (
           <>
-            <Text style={styles.continueButtonText}>
+            <Text style={[styles.navButtonText, { color: 'white' }]}>
               {onComplete ? 'Complete' : 'Continue'}
             </Text>
             <Ionicons name="chevron-forward" size={16} color="white" />
@@ -74,48 +74,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
+    paddingVertical: theme.spacing.md,
     backgroundColor: theme.colors.white,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingBottom: theme.spacing.lg,
   },
   navButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.xl,
     borderRadius: theme.borderRadius.xl,
-    gap: theme.spacing.xs,
-    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 44,
   },
-  backButton: {
-    backgroundColor: theme.colors.white,
+  backNavButton: {
+    backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  backButtonText: {
-    fontSize: theme.typography.body.fontSize,
-    color: theme.colors.blueGreen,
-    fontWeight: '500',
-  },
-  continueButton: {
+  nextButton: {
     backgroundColor: theme.colors.blueGreen,
     flex: 1,
     marginLeft: theme.spacing.md,
     justifyContent: 'center',
   },
-  continueButtonDisabled: {
+  nextButtonDisabled: {
     backgroundColor: theme.colors.gray,
+    opacity: 0.6,
   },
-  continueButtonText: {
+  navButtonText: {
     fontSize: theme.typography.body.fontSize,
-    color: theme.colors.white,
-    fontWeight: '600',
+    color: theme.colors.blueGreen,
+    fontWeight: '500',
+    marginHorizontal: theme.spacing.xs,
   },
   disabledText: {
     color: theme.colors.gray,

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -229,16 +229,24 @@ export const VoiceNoteStep: React.FC = () => {
   
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Voice Notes</Text>
-        <Text style={styles.subtitle}>
-          Record your observations about the pool. Mention any concerns, special features, or maintenance recommendations.
+      {/* Header with gradient */}
+      <LinearGradient
+        colors={[theme.colors.blueGreen, theme.colors.darkBlue]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <Text style={styles.headerTitle}>Voice Notes</Text>
+        <Text style={styles.headerSubtitle}>
+          Record your observations about the pool
         </Text>
-      </View>
+      </LinearGradient>
       
-      <View style={styles.content}>
-        {/* Instructions */}
-        <View style={styles.instructionsBox}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* Voice Recording Card */}
+        <View style={styles.voiceCard}>
+          {/* Instructions */}
+          <View style={styles.instructionsBox}>
           <Text style={styles.instructionsTitle}>What to Include:</Text>
           <View style={styles.instructionsList}>
             <Text style={styles.instructionItem}>• Overall pool condition and cleanliness</Text>
@@ -314,12 +322,8 @@ export const VoiceNoteStep: React.FC = () => {
             </View>
           )}
         </View>
-      </View>
-      
-      {/* Hidden submit handler */}
-      <View style={{ height: 0, overflow: 'hidden' }}>
-        <TouchableOpacity onPress={handleNext} />
-      </View>
+        </View>
+      </ScrollView>
     </View>
   );
 };
@@ -327,27 +331,37 @@ export const VoiceNoteStep: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.white,
+  },
+  scrollContent: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.xl,
   },
   header: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
+    padding: theme.spacing.xl,
+    borderRadius: theme.borderRadius.xl,
+    marginBottom: theme.spacing.lg,
   },
-  title: {
+  headerTitle: {
     fontSize: theme.typography.h2.fontSize,
     fontWeight: '700',
-    color: theme.colors.darkBlue,
+    color: 'white',
     marginBottom: theme.spacing.xs,
   },
-  subtitle: {
+  headerSubtitle: {
     fontSize: theme.typography.body.fontSize,
-    color: theme.colors.gray,
-    lineHeight: 22,
+    color: 'rgba(255, 255, 255, 0.9)',
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: theme.spacing.lg,
+  voiceCard: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(210, 226, 225, 1)',
   },
   instructionsBox: {
     backgroundColor: theme.colors.seaFoam + '30',

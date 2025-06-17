@@ -38,36 +38,34 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       </View>
 
       {/* Progress Steps */}
-      <View style={styles.stepsContainer}>
+      <View style={styles.stepsIndicator}>
         {steps.map((step, index) => {
           const status = getStepStatus(index);
           const isLast = index === steps.length - 1;
 
           return (
-            <View key={step.id} style={styles.stepWrapper}>
-              <View style={styles.stepItem}>
-                <View
-                  style={[
-                    styles.stepDot,
-                    status === 'completed' && styles.stepDotCompleted,
-                    status === 'current' && styles.stepDotCurrent,
-                  ]}
-                >
-                  {status === 'completed' ? (
-                    <Ionicons name="checkmark" size={12} color="white" />
-                  ) : (
-                    <Text style={styles.stepNumber}>{index + 1}</Text>
-                  )}
-                </View>
-                {!isLast && (
-                  <View
-                    style={[
-                      styles.stepConnector,
-                      status === 'completed' && styles.stepConnectorCompleted,
-                    ]}
-                  />
+            <View key={step.id} style={styles.stepDotContainer}>
+              <View
+                style={[
+                  styles.stepDot,
+                  status === 'completed' && styles.stepDotCompleted,
+                  status === 'current' && styles.stepDotCurrent,
+                ]}
+              >
+                {status === 'completed' ? (
+                  <Ionicons name="checkmark" size={12} color="white" />
+                ) : (
+                  <Text style={styles.stepNumber}>{index + 1}</Text>
                 )}
               </View>
+              {!isLast && (
+                <View
+                  style={[
+                    styles.stepConnector,
+                    status === 'completed' && styles.stepConnectorCompleted,
+                  ]}
+                />
+              )}
             </View>
           );
         })}
@@ -88,38 +86,49 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
+    paddingTop: theme.spacing.md,
   },
   saveButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.xs,
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.lightGray + '30',
   },
   saveText: {
     fontSize: theme.typography.body.fontSize,
     color: theme.colors.gray,
+    fontWeight: '500',
   },
-  stepsContainer: {
+  stepsIndicator: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
   },
-  stepWrapper: {
-    flex: 1,
-  },
-  stepItem: {
+  stepDotContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
   stepDot: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: theme.colors.lightGray,
+    backgroundColor: theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -128,6 +137,8 @@ const styles = StyleSheet.create({
   },
   stepDotCurrent: {
     backgroundColor: theme.colors.blueGreen,
+    borderWidth: 3,
+    borderColor: theme.colors.blueGreen + '40',
   },
   stepNumber: {
     fontSize: 12,
@@ -135,23 +146,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   stepConnector: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    right: -12,
+    width: 32,
     height: 2,
     backgroundColor: theme.colors.border,
+    marginHorizontal: theme.spacing.xs,
   },
   stepConnectorCompleted: {
     backgroundColor: theme.colors.success,
   },
   currentStepInfo: {
     paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
+    paddingBottom: theme.spacing.lg,
+    paddingTop: theme.spacing.xs,
   },
   currentStepTitle: {
     fontSize: theme.typography.h3.fontSize,
     fontWeight: '600',
     color: theme.colors.darkBlue,
+    textAlign: 'center',
   },
 });

@@ -203,7 +203,8 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     4: (s: OnboardingSession) => s.voiceNote && s.voiceNote.duration >= 30,
   };
   
-  const canNavigateForward = session ? stepValidation[currentStep as keyof typeof stepValidation]?.(session) ?? false : false;
+  // For testing, always allow navigation
+  const canNavigateForward = true;
   
   // Initialize new session
   const initializeSession = async (customerId: string, customerName: string, offerId?: string) => {

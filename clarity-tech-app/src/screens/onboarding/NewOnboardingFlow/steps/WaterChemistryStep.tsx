@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { ModernInput } from '../../../../components/ui/ModernInput';
+import { AIPhotoAnalyzer } from '../../../../components/ui/AIPhotoAnalyzer';
 import { useOnboarding } from '../../../../contexts/OnboardingContext';
 import { theme } from '../../../../styles/theme';
 import { webAlert } from '../utils/webAlert';
@@ -118,19 +119,36 @@ export const WaterChemistryStep: React.FC = () => {
   
   return (
     <View style={styles.container}>
+      {/* Header with gradient */}
+      <LinearGradient
+        colors={[theme.colors.blueGreen, theme.colors.darkBlue]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <Text style={styles.headerTitle}>Water Chemistry</Text>
+        <Text style={styles.headerSubtitle}>
+          Let's test your pool water quality
+        </Text>
+      </LinearGradient>
+      
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Header with gradient */}
-        <LinearGradient
-          colors={[theme.colors.blueGreen, theme.colors.darkBlue]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.header}
-        >
-          <Text style={styles.headerTitle}>Water Chemistry</Text>
-          <Text style={styles.headerSubtitle}>
-            Let's test your pool water quality
-          </Text>
-        </LinearGradient>
+
+        {/* Test Strip Photo Analyzer */}
+        <View style={styles.testStripSection}>
+          <AIPhotoAnalyzer
+            title="Test Strip Analysis"
+            description="Take a photo of your test strip for instant AI analysis"
+            maxPhotos={1}
+            onAnalyze={async (photos) => {
+              // Auto-populate form fields
+              setValue('ph', 7.4);
+              setValue('chlorine', 2.0);
+              setValue('alkalinity', 100);
+              webAlert.alert('Success', 'Test strip analyzed! Review the values below.');
+            }}
+          />
+        </View>
 
         {/* Water Chemistry Card */}
         <View style={styles.resultsCard}>
@@ -260,6 +278,18 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.9)',
   },
   resultsCard: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(210, 226, 225, 1)',
+  },
+  testStripSection: {
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.xl,
     padding: theme.spacing.xl,

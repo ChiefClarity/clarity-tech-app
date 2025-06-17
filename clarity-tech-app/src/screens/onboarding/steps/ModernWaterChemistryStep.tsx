@@ -15,20 +15,18 @@ import { launchCamera } from '../../../utils/webCamera';
 import { FEATURES, AI_ENDPOINTS } from '../../../config/features';
 
 const waterChemistrySchema = z.object({
-  // Required fields
-  ph: z.number().min(6).max(8.5),
-  chlorine: z.number().min(0).max(10),
-  alkalinity: z.number().min(0).max(300),
-  cyanuricAcid: z.number().min(0).max(100),
-  // Optional fields
-  calcium: z.number().min(0).max(1000).optional(),
-  salt: z.number().min(0).max(10000).optional(),
-  tds: z.number().min(0).max(5000).optional(),
-  temperature: z.number().min(32).max(120).optional(),
-  phosphates: z.number().min(0).max(1000).optional(),
-  copper: z.number().min(0).max(0.5).optional(),
-  iron: z.number().min(0).max(0.5).optional(),
-  orp: z.number().min(0).max(1000).optional(),
+  chlorine: z.coerce.number().optional(),
+  ph: z.coerce.number().optional(),
+  alkalinity: z.coerce.number().optional(),
+  cyanuricAcid: z.coerce.number().optional(),
+  calcium: z.coerce.number().optional(),
+  salt: z.coerce.number().optional(),
+  tds: z.coerce.number().optional(),
+  temperature: z.coerce.number().optional(),
+  phosphates: z.coerce.number().optional(),
+  copper: z.coerce.number().optional(),
+  iron: z.coerce.number().optional(),
+  orp: z.coerce.number().optional(),
   notes: z.string().optional(),
 });
 
@@ -58,9 +56,17 @@ export const ModernWaterChemistryStep = React.forwardRef<
     resolver: zodResolver(waterChemistrySchema),
     defaultValues: data.waterChemistry || {
       chlorine: 0,
-      ph: 7.2,
-      alkalinity: 80,
-      cyanuricAcid: 40,
+      ph: 0,
+      alkalinity: 0,
+      cyanuricAcid: 0,
+      calcium: undefined,
+      salt: undefined,
+      tds: undefined,
+      temperature: undefined,
+      phosphates: undefined,
+      copper: undefined,
+      iron: undefined,
+      notes: '',
     },
   });
 

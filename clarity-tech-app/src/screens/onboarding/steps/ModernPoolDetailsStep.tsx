@@ -14,42 +14,39 @@ import { sanitizeNumber, sanitizeInput } from '../../../utils/sanitize';
 import { FEATURES, AI_ENDPOINTS } from '../../../config/features';
 
 const poolDetailsSchema = z.object({
-  shape: z.preprocess(
-    (val) => {
-      console.log('🔍 [DEBUG] z.preprocess shape input:', val);
-      const result = (!val || val === '') ? 'rectangle' : val;
-      console.log('🔍 [DEBUG] z.preprocess shape output:', result);
-      return result;
-    },
-    z.enum(['rectangle', 'oval', 'circle', 'kidney', 'freeform', 'other'] as const)
-  ),
-  length: z.number().min(1, 'Length is required'),
-  width: z.number().min(1, 'Width is required'),
-  shallowEndDepth: z.number().min(0.5, 'Shallow depth is required'),
-  deepEndDepth: z.number().min(1, 'Deep depth is required'),
+  type: z.string().optional(),
+  shape: z.string().optional(),
+  length: z.number().optional(),
+  width: z.number().optional(),
+  shallowEndDepth: z.number().optional(),
+  deepEndDepth: z.number().optional(),
   avgDepth: z.number().optional(),
-  surfaceArea: z.number().optional(),
   volume: z.number().optional(),
-  type: z.enum(['inground', 'above_ground']).default('inground'),
-  surfaceMaterial: z.enum(['plaster', 'pebble', 'tile', 'vinyl', 'fiberglass', 'other']).default('plaster'),
-  surfaceCondition: z.enum(['excellent', 'good', 'fair', 'poor']).default('good'),
-  surfaceStains: z.boolean().default(false),
-  features: z.array(z.string()).default([]),
-  environment: z.object({
-    nearbyTrees: z.boolean().default(false),
-    treeType: z.string().optional(),
-    deckMaterial: z.string().default('concrete'),
-    fenceType: z.string().default('none'),
-  }).default({
-    nearbyTrees: false,
-    deckMaterial: 'concrete',
-    fenceType: 'none',
-  }),
-  // Environment factors (legacy fields for backward compatibility)
-  sunExposure: z.enum(['full', 'partial', 'shade']).optional(),
-  treeTypes: z.string().optional(),
+  surfaceArea: z.number().optional(),
+  surfaceMaterial: z.string().optional(),
+  surfaceCondition: z.string().optional(),
+  surfaceAge: z.number().optional(),
+  surfaceStains: z.boolean().optional(),
+  tileCondition: z.string().optional(),
+  tileChips: z.boolean().optional(),
+  caulkingCondition: z.string().optional(),
+  expansionJointCondition: z.string().optional(),
+  features: z.array(z.string()).optional(),
   deckMaterial: z.string().optional(),
+  fenceType: z.string().optional(),
+  gateCondition: z.string().optional(),
+  nearbyTrees: z.boolean().optional(),
+  treeTypes: z.string().optional(),
+  grassType: z.string().optional(),
+  sprinklerSystem: z.boolean().optional(),
+  sunExposure: z.string().optional(),
   notes: z.string().optional(),
+  environment: z.object({
+    nearbyTrees: z.boolean().optional(),
+    treeType: z.string().optional(),
+    deckMaterial: z.string().optional(),
+    fenceType: z.string().optional(),
+  }).optional(),
 });
 
 type PoolDetailsFormData = z.infer<typeof poolDetailsSchema>;
@@ -86,6 +83,11 @@ export const ModernPoolDetailsStep = React.forwardRef<
   const [isAnalyzingSatellite, setIsAnalyzingSatellite] = useState(false);
   const [isAnalyzingEnvironment, setIsAnalyzingEnvironment] = useState(false);
   const [satelliteAnalyzed, setSatelliteAnalyzed] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<{
+    success: boolean;
+    confidence?: number;
+    message?: string;
+  } | null>(null);
   
   console.log('🔍 [DEBUG] Initial selectedShape state:', selectedShape);
 
@@ -233,8 +235,18 @@ export const ModernPoolDetailsStep = React.forwardRef<
       setValue('deckMaterial', result.deckMaterial);
       
       console.log(`🌳 [AI] Environment analyzed with ${Math.round(result.confidence * 100)}% confidence`);
+      
+      setAnalysisResult({
+        success: true,
+        confidence: Math.round(result.confidence * 100),
+        message: 'Environment analysis complete'
+      });
+      setTimeout(() => setAnalysisResult(null), 5000);
     } catch (error) {
-      Alert.alert('Analysis Failed', 'Unable to analyze environment. Please enter details manually.');
+      setAnalysisResult({
+        success: false,
+        message: 'Unable to analyze environment. Please enter details manually.'
+      });
     } finally {
       setIsAnalyzingEnvironment(false);
     }
@@ -255,31 +267,31 @@ export const ModernPoolDetailsStep = React.forwardRef<
   }, [watchedValues.length, watchedValues.width, watchedValues.shallowEndDepth, watchedValues.deepEndDepth, setValue]);
 
   const onSubmit = (formData: PoolDetailsFormData) => {
-    console.log('Pool Profile onSubmit called with:', formData);
+    console.log('Pool Details onSubmit called with:', formData);
     
-    // Transform form data to match PoolDetails interface
+    // Transform to PoolDetails type
     const poolDetails: PoolDetails = {
       type: formData.type || 'inground',
-      shape: formData.shape,
-      length: formData.length,
-      width: formData.width,
-      avgDepth: formData.avgDepth || (formData.shallowEndDepth + formData.deepEndDepth) / 2,
-      deepEndDepth: formData.deepEndDepth,
-      shallowEndDepth: formData.shallowEndDepth,
+      shape: formData.shape || 'rectangle',
+      length: formData.length || 0,
+      width: formData.width || 0,
+      avgDepth: formData.avgDepth || 0,
+      deepEndDepth: formData.deepEndDepth || 0,
+      shallowEndDepth: formData.shallowEndDepth || 0,
       volume: formData.volume || 0,
       surfaceMaterial: formData.surfaceMaterial || 'plaster',
       surfaceCondition: formData.surfaceCondition || 'good',
       surfaceStains: formData.surfaceStains || false,
       features: formData.features || [],
-      environment: formData.environment || {
-        nearbyTrees: false,
-        treeType: formData.treeTypes ? sanitizeInput(formData.treeTypes) : undefined,
-        deckMaterial: formData.deckMaterial ? sanitizeInput(formData.deckMaterial) : 'concrete',
+      environment: {
+        nearbyTrees: formData.nearbyTrees || false,
+        treeType: formData.treeTypes,
+        deckMaterial: formData.deckMaterial || 'concrete',
         fenceType: 'none',
       },
     };
     
-    console.log('Pool Profile calling onNext with transformed data:', poolDetails);
+    console.log('Calling onNext with poolDetails:', poolDetails);
     onNext(poolDetails);
   };
 
@@ -360,6 +372,23 @@ export const ModernPoolDetailsStep = React.forwardRef<
             </Text>
           </LinearGradient>
         </TouchableOpacity>
+        
+        {analysisResult && (
+          <View style={[
+            styles.analysisResultBanner,
+            analysisResult.success ? styles.successBanner : styles.errorBanner
+          ]}>
+            <Ionicons 
+              name={analysisResult.success ? "checkmark-circle" : "close-circle"} 
+              size={20} 
+              color={analysisResult.success ? theme.colors.success : theme.colors.error} 
+            />
+            <Text style={styles.analysisResultText}>
+              {analysisResult.message}
+              {analysisResult.confidence && ` - ${analysisResult.confidence}% confidence`}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Pool Shape Selection */}
@@ -780,5 +809,24 @@ const styles = StyleSheet.create({
     color: theme.colors.gray,
     textAlign: 'center',
     marginTop: 2,
+  },
+  analysisResultBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    marginTop: theme.spacing.sm,
+  },
+  successBanner: {
+    backgroundColor: theme.colors.success + '20',
+  },
+  errorBanner: {
+    backgroundColor: theme.colors.error + '20',
+  },
+  analysisResultText: {
+    marginLeft: theme.spacing.sm,
+    fontSize: theme.typography.small.fontSize,
+    color: theme.colors.text,
+    flex: 1,
   },
 });

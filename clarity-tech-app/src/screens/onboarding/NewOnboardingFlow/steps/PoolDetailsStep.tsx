@@ -140,13 +140,22 @@ export const PoolDetailsStep: React.FC = () => {
   };
   
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Pool Details</Text>
-        <Text style={styles.subtitle}>Describe the pool specifications</Text>
-      </View>
+    <View style={styles.container}>
+      {/* Header with gradient */}
+      <LinearGradient
+        colors={[theme.colors.blueGreen, theme.colors.darkBlue]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <Text style={styles.headerTitle}>Pool Details</Text>
+        <Text style={styles.headerSubtitle}>
+          Let's capture your pool specifications
+        </Text>
+      </LinearGradient>
       
-      <View style={styles.form}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.detailsCard}>
         {/* Pool Type */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Pool Type</Text>
@@ -385,13 +394,9 @@ export const PoolDetailsStep: React.FC = () => {
             )}
           />
         </View>
-      </View>
-      
-      {/* Hidden submit button */}
-      <View style={{ height: 0, overflow: 'hidden' }}>
-        <TouchableOpacity onPress={handleSubmit(onSubmit)} />
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+    </View>
   );
 };
 
@@ -409,22 +414,37 @@ const getConditionColor = (condition: string) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.white,
+  },
+  scrollContent: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.xl,
   },
   header: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
+    padding: theme.spacing.xl,
+    borderRadius: theme.borderRadius.xl,
+    marginBottom: theme.spacing.lg,
   },
-  title: {
+  headerTitle: {
     fontSize: theme.typography.h2.fontSize,
     fontWeight: '700',
-    color: theme.colors.darkBlue,
+    color: 'white',
     marginBottom: theme.spacing.xs,
   },
-  subtitle: {
+  headerSubtitle: {
     fontSize: theme.typography.body.fontSize,
-    color: theme.colors.gray,
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+  detailsCard: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(210, 226, 225, 1)',
   },
   form: {
     paddingHorizontal: theme.spacing.lg,

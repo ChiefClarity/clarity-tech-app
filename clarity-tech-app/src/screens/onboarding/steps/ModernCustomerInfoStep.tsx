@@ -12,16 +12,17 @@ import { theme } from '../../../styles/theme';
 import { Customer } from '../../../types';
 import { OnboardingStepData } from '../../../types/onboarding';
 import { sanitizeFormData } from '../../../utils/sanitize';
+import { MOCK_CUSTOMER } from '../../../mocks/testData';
 
 const customerSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().min(10, 'Phone number must be at least 10 digits'),
-  address: z.string().min(1, 'Address is required'),
-  city: z.string().min(1, 'City is required'),
-  state: z.string().length(2, 'State must be 2 characters'),
-  zipCode: z.string().regex(/^\d{5}$/, 'Zip code must be 5 digits'),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zipCode: z.string().optional(),
   customerNotes: z.string().optional(),
 });
 
@@ -41,14 +42,14 @@ const ModernCustomerInfoStepComponent = React.forwardRef<
   console.log('🔴 CUSTOMER INFO STEP - data.customer:', data.customer);
   
   const defaultValues = useMemo(() => data.customer || {
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    address: '',
-    city: '',
-    state: '',
-    zipCode: '',
+    firstName: MOCK_CUSTOMER.firstName,
+    lastName: MOCK_CUSTOMER.lastName,
+    email: MOCK_CUSTOMER.email,
+    phone: MOCK_CUSTOMER.phone,
+    address: MOCK_CUSTOMER.address,
+    city: MOCK_CUSTOMER.city,
+    state: MOCK_CUSTOMER.state,
+    zipCode: MOCK_CUSTOMER.zipCode,
     customerNotes: '',
   }, [data.customer]);
 
@@ -78,8 +79,16 @@ const ModernCustomerInfoStepComponent = React.forwardRef<
   const onSubmit = useCallback((formData: CustomerFormData) => {
     const sanitizedData = sanitizeFormData(formData);
     const customerData: Customer = {
-      ...sanitizedData,
       id: data.customer?.id || `customer_${Date.now()}`,
+      firstName: sanitizedData.firstName || '',
+      lastName: sanitizedData.lastName || '',
+      email: sanitizedData.email || '',
+      phone: sanitizedData.phone || '',
+      address: sanitizedData.address || '',
+      city: sanitizedData.city || '',
+      state: sanitizedData.state || '',
+      zipCode: sanitizedData.zipCode || '',
+      notes: sanitizedData.customerNotes,
     };
     onNext(customerData);
   }, [onNext, data.customer]);

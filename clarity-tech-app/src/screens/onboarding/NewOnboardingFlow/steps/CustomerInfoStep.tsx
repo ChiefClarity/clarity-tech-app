@@ -86,7 +86,6 @@ export const CustomerInfoStep: React.FC = () => {
   
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
       {/* Header with gradient */}
       <LinearGradient
         colors={[theme.colors.blueGreen, theme.colors.darkBlue]}
@@ -99,6 +98,8 @@ export const CustomerInfoStep: React.FC = () => {
           Let's start with your customer information
         </Text>
       </LinearGradient>
+      
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
       {/* Customer Info Card */}
       <View style={styles.customerCard}>

@@ -7,6 +7,7 @@ import {
   StyleSheet
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { useOnboarding } from '../../../../contexts/OnboardingContext';
 import { ModernInput } from '../../../../components/ui/ModernInput';
@@ -177,15 +178,25 @@ export const EquipmentStep: React.FC = () => {
   };
   
   return (
-    <ScrollView 
-      ref={scrollViewRef}
-      style={styles.container} 
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.header}>
-        <Text style={styles.title}>Equipment Assessment</Text>
-        <Text style={styles.subtitle}>Document all pool equipment</Text>
-      </View>
+    <View style={styles.container}>
+      {/* Header with gradient */}
+      <LinearGradient
+        colors={[theme.colors.blueGreen, theme.colors.darkBlue]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <Text style={styles.headerTitle}>Equipment Assessment</Text>
+        <Text style={styles.headerSubtitle}>
+          Let's document all your pool equipment
+        </Text>
+      </LinearGradient>
+      
+      <ScrollView 
+        ref={scrollViewRef}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
       
       {/* AI PHOTO ANALYZER SECTION */}
       <View style={styles.aiAnalyzerSection}>
@@ -259,14 +270,10 @@ export const EquipmentStep: React.FC = () => {
         </View>
       ))}
       
-      {/* Hidden submit handler */}
-      <View style={{ height: 0, overflow: 'hidden' }}>
-        <TouchableOpacity onPress={handleNext} />
-      </View>
-      
       {/* Bottom padding */}
       <View style={{ height: 100 }} />
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
@@ -888,22 +895,24 @@ const EquipmentPadSection: React.FC<{ data: any; onChange: (field: string, value
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.white,
+  },
+  scrollContent: {
+    paddingBottom: theme.spacing.xl,
   },
   header: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
+    padding: theme.spacing.xl,
+    borderRadius: theme.borderRadius.xl,
+    marginBottom: theme.spacing.lg,
   },
-  title: {
+  headerTitle: {
     fontSize: theme.typography.h2.fontSize,
     fontWeight: '700',
-    color: theme.colors.darkBlue,
+    color: 'white',
     marginBottom: theme.spacing.xs,
   },
-  subtitle: {
+  headerSubtitle: {
     fontSize: theme.typography.body.fontSize,
-    color: theme.colors.gray,
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   aiAnalyzerSection: {
     paddingHorizontal: theme.spacing.lg,

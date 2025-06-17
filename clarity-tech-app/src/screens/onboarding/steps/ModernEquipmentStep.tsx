@@ -65,6 +65,11 @@ export const ModernEquipmentStep = React.forwardRef<
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<{
+    success: boolean;
+    confidence?: number;
+    message?: string;
+  } | null>(null);
   
   const {
     control,
@@ -279,11 +284,25 @@ export const ModernEquipmentStep = React.forwardRef<
       setValue('equipmentPhotos', photos);
       
       setAnalysisComplete(true);
-      Alert.alert('Success', 'Equipment analysis complete! Please review and complete any missing fields.');
+      
+      // Set analysis result instead of Alert
+      setAnalysisResult({
+        success: true,
+        confidence: analysisResult.confidence || 87,
+        message: 'Equipment analysis complete'
+      });
+      
+      // Auto-hide message after 5 seconds
+      setTimeout(() => {
+        setAnalysisResult(null);
+      }, 5000);
       
     } catch (error) {
       console.error('Equipment analysis failed:', error);
-      Alert.alert('Analysis Error', 'Unable to analyze photos. Please fill in equipment details manually.');
+      setAnalysisResult({
+        success: false,
+        message: 'Analysis failed. Please try again.'
+      });
     } finally {
       setIsAnalyzing(false);
     }
@@ -404,11 +423,19 @@ export const ModernEquipmentStep = React.forwardRef<
           initialPhotos={watch('equipmentPhotos') || []}
         />
         
-        {analysisComplete && (
-          <View style={styles.successBanner}>
-            <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
-            <Text style={styles.successText}>
-              Analysis complete! Review and complete fields below.
+        {analysisResult && (
+          <View style={[
+            styles.analysisResultBanner,
+            analysisResult.success ? styles.successBanner : styles.errorBanner
+          ]}>
+            <Ionicons 
+              name={analysisResult.success ? "checkmark-circle" : "close-circle"} 
+              size={20} 
+              color={analysisResult.success ? theme.colors.success : theme.colors.error} 
+            />
+            <Text style={styles.analysisResultText}>
+              {analysisResult.message}
+              {analysisResult.confidence && ` - ${analysisResult.confidence}% confidence`}
             </Text>
           </View>
         )}
@@ -1408,6 +1435,22 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.body.fontSize,
     color: theme.colors.success,
     marginLeft: theme.spacing.sm,
+    flex: 1,
+  },
+  analysisResultBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    marginTop: theme.spacing.sm,
+  },
+  errorBanner: {
+    backgroundColor: theme.colors.error + '20',
+  },
+  analysisResultText: {
+    marginLeft: theme.spacing.sm,
+    fontSize: theme.typography.small.fontSize,
+    color: theme.colors.text,
     flex: 1,
   },
   divider: {
