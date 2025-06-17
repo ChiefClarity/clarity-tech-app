@@ -12,6 +12,7 @@ import { AIInsightsBox } from '../../../../components/common/AIInsightsBox';
 import { useOnboarding } from '../../../../contexts/OnboardingContext';
 import { theme } from '../../../../styles/theme';
 import { webAlert } from '../utils/webAlert';
+import { FEATURES, AI_ENDPOINTS } from '../../../../config/features';
 
 // Pool shape options with volume calculation support
 const POOL_SHAPES = [
@@ -31,7 +32,7 @@ const SURFACE_MATERIALS = [
   { value: 'other', label: 'Other' },
 ];
 
-const FEATURES = [
+const POOL_FEATURES = [
   { id: 'waterfall', label: 'Waterfall', icon: 'water' },
   { id: 'spa', label: 'Spa/Hot Tub', icon: 'flame' },
   { id: 'lights', label: 'Lights', icon: 'bulb' },
@@ -66,22 +67,39 @@ type PoolDetailsData = z.infer<typeof poolDetailsSchema>;
 export const PoolDetailsStep: React.FC = () => {
   const { session, updatePoolDetails, nextStep } = useOnboarding();
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
+  const [isAnalyzingSatellite, setIsAnalyzingSatellite] = useState(false);
+  const [satelliteAnalyzed, setSatelliteAnalyzed] = useState(false);
+  const [satelliteAnalysisResult, setSatelliteAnalysisResult] = useState<any>(null);
   
-  const { control, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<PoolDetailsData>({
+  const { control, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = useForm<PoolDetailsData>({
     resolver: zodResolver(poolDetailsSchema),
-    defaultValues: session?.poolDetails || {
-      poolType: 'inground',
-      shape: 'rectangle',
-      length: 0,
-      width: 0,
-      depth: 0,
-      volume: 0,
-      surfaceMaterial: 'plaster',
-      surfaceCondition: 'good',
-      features: [],
-      nearbyTrees: false,
-      grassOrDirt: 'grass',
-      sprinklerSystem: false,
+    defaultValues: {
+      type: session?.poolDetails?.type || 'inground',
+      shape: session?.poolDetails?.shape || 'rectangle',
+      length: session?.poolDetails?.length || 0,
+      width: session?.poolDetails?.width || 0,
+      avgDepth: session?.poolDetails?.avgDepth || 0,
+      deepEndDepth: session?.poolDetails?.deepEndDepth || 0,
+      shallowEndDepth: session?.poolDetails?.shallowEndDepth || 0,
+      volume: session?.poolDetails?.volume || 0,
+      surfaceArea: session?.poolDetails?.surfaceArea || 0,
+      surfaceMaterial: session?.poolDetails?.surfaceMaterial || '',
+      surfaceCondition: session?.poolDetails?.surfaceCondition || '',
+      surfaceAge: session?.poolDetails?.surfaceAge || 0,
+      surfaceStains: session?.poolDetails?.surfaceStains || false,
+      tileCondition: session?.poolDetails?.tileCondition || '',
+      tileChips: session?.poolDetails?.tileChips || false,
+      caulkingCondition: session?.poolDetails?.caulkingCondition || '',
+      expansionJointCondition: session?.poolDetails?.expansionJointCondition || '',
+      features: session?.poolDetails?.features || [],
+      deckMaterial: session?.poolDetails?.environment?.deckMaterial || '',
+      fenceType: session?.poolDetails?.environment?.fenceType || '',
+      gateCondition: session?.poolDetails?.environment?.gateCondition || '',
+      nearbyTrees: session?.poolDetails?.environment?.nearbyTrees || false,
+      treeTypes: session?.poolDetails?.environment?.treeType || '',
+      grassType: session?.poolDetails?.environment?.grassType || '',
+      sprinklerSystem: session?.poolDetails?.environment?.sprinklerSystem || false,
+      sunExposure: session?.poolDetails?.environment?.sunExposure || '',
     },
   });
   
@@ -139,6 +157,92 @@ export const PoolDetailsStep: React.FC = () => {
     setSelectedFeatures(updated);
     setValue('features', updated);
   };
+
+  // Auto-save on field blur
+  const handleFieldBlur = async (field: string, value: any) => {
+    // Save current form state
+    const allValues = getValues();
+    try {
+      await updatePoolDetails(allValues);
+    } catch (error) {
+      console.error('Failed to save pool details:', error);
+    }
+  };
+
+  // Mock satellite analysis function
+  const analyzeSatelliteImage = async (address: string) => {
+    if (FEATURES.USE_REAL_AI) {
+      try {
+        const response = await fetch(AI_ENDPOINTS.ANALYZE_POOL_SATELLITE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address }),
+        });
+        return await response.json();
+      } catch (error) {
+        console.error('[API-INTEGRATION] Satellite analysis failed:', error);
+        throw error;
+      }
+    }
+    
+    // Mock satellite analysis response
+    return {
+      shape: 'rectangle',
+      length: 32,
+      width: 16,
+      surfaceArea: 512,
+      confidence: 0.87,
+      features: ['deck', 'pool', 'landscaping']
+    };
+  };
+
+  const handleSatelliteAnalysis = async () => {
+    const customerAddress = session?.customerInfo?.address;
+    if (!customerAddress) {
+      webAlert.alert('Address Required', 'Customer address is needed for satellite analysis.');
+      return;
+    }
+
+    setIsAnalyzingSatellite(true);
+    try {
+      const result = await analyzeSatelliteImage(customerAddress);
+      
+      // Auto-populate fields
+      setValue('shape', result.shape);
+      setValue('length', result.length);
+      setValue('width', result.width);
+      setValue('surfaceArea', result.surfaceArea);
+      
+      // Calculate volume if depths are available
+      const shallowDepth = getValues('shallowEndDepth') || 3;
+      const deepDepth = getValues('deepEndDepth') || 8;
+      const avgDepth = (shallowDepth + deepDepth) / 2;
+      const volume = result.surfaceArea * avgDepth * 7.48;
+      setValue('volume', Math.round(volume));
+      setValue('avgDepth', avgDepth);
+      
+      setSatelliteAnalyzed(true);
+      setSatelliteAnalysisResult({
+        success: true,
+        confidence: Math.round(result.confidence * 100),
+        surfaceArea: result.surfaceArea,
+        message: `Pool detected: ${result.length}' x ${result.width}' ${result.shape}`
+      });
+      
+      // Save the data
+      const values = getValues();
+      await updatePoolDetails(values);
+      
+      setTimeout(() => setSatelliteAnalysisResult(null), 5000);
+    } catch (error) {
+      setSatelliteAnalysisResult({
+        success: false,
+        message: 'Unable to analyze satellite imagery'
+      });
+    } finally {
+      setIsAnalyzingSatellite(false);
+    }
+  };
   
   return (
     <View style={styles.container}>
@@ -156,6 +260,55 @@ export const PoolDetailsStep: React.FC = () => {
       </LinearGradient>
       
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* AI Satellite Analysis */}
+        <View style={styles.analysisCard}>
+          <View style={styles.analysisHeader}>
+            <Ionicons name="globe" size={24} color={theme.colors.aiPink} />
+            <Text style={styles.analysisTitle}>AI Satellite Analysis</Text>
+          </View>
+          <Text style={styles.analysisDescription}>
+            Automatically detect pool dimensions and shape from satellite imagery
+          </Text>
+          
+          <TouchableOpacity
+            style={[styles.analysisButton, satelliteAnalyzed && styles.analysisButtonCompleted]}
+            onPress={handleSatelliteAnalysis}
+            disabled={isAnalyzingSatellite}
+          >
+            <LinearGradient
+              colors={satelliteAnalyzed ? [theme.colors.success, theme.colors.success] : [theme.colors.aiPink, theme.colors.aiPink]}
+              style={styles.analysisButtonGradient}
+            >
+              {isAnalyzingSatellite ? (
+                <Ionicons name="sync" size={20} color="white" />
+              ) : satelliteAnalyzed ? (
+                <Ionicons name="checkmark-circle" size={20} color="white" />
+              ) : (
+                <Ionicons name="globe" size={20} color="white" />
+              )}
+              <Text style={styles.analysisButtonText}>
+                {isAnalyzingSatellite ? 'Analyzing...' : satelliteAnalyzed ? 'Analysis Complete' : 'Analyze Pool'}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          
+          {satelliteAnalysisResult && (
+            <View style={[
+              styles.analysisResultBanner,
+              satelliteAnalysisResult.success ? styles.successBanner : styles.errorBanner
+            ]}>
+              <Ionicons 
+                name={satelliteAnalysisResult.success ? "checkmark-circle" : "close-circle"} 
+                size={20} 
+                color={satelliteAnalysisResult.success ? theme.colors.success : theme.colors.error} 
+              />
+              <Text style={styles.analysisResultText}>
+                {satelliteAnalysisResult.message}
+                {satelliteAnalysisResult.confidence && ` - ${satelliteAnalysisResult.confidence}% confidence`}
+              </Text>
+            </View>
+          )}
+        </View>
         <View style={styles.detailsCard}>
         {/* Pool Type */}
         <View style={styles.section}>
@@ -202,8 +355,9 @@ export const PoolDetailsStep: React.FC = () => {
                   >
                     <Ionicons
                       name={shape.icon as any}
-                      size={20}
+                      size={14}
                       color={value === shape.value ? theme.colors.white : theme.colors.gray}
+                      style={styles.shapeIcon}
                     />
                     <Text style={[
                       styles.shapeButtonText,
@@ -230,8 +384,8 @@ export const PoolDetailsStep: React.FC = () => {
                   <ModernInput
                     label="Length"
                     value={String(value || '')}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
+                    onChangeText={(text) => onChange(parseFloat(text) || 0)}
+                    onBlur={() => handleFieldBlur('length', value)}
                     error={errors.length?.message}
                     keyboardType="numeric"
                     suffix="ft"
@@ -247,8 +401,8 @@ export const PoolDetailsStep: React.FC = () => {
                   <ModernInput
                     label="Width"
                     value={String(value || '')}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
+                    onChangeText={(text) => onChange(parseFloat(text) || 0)}
+                    onBlur={() => handleFieldBlur('width', value)}
                     error={errors.width?.message}
                     keyboardType="numeric"
                     suffix="ft"
@@ -264,8 +418,8 @@ export const PoolDetailsStep: React.FC = () => {
                   <ModernInput
                     label="Avg Depth"
                     value={String(value || '')}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
+                    onChangeText={(text) => onChange(parseFloat(text) || 0)}
+                    onBlur={() => handleFieldBlur('depth', value)}
                     error={errors.depth?.message}
                     keyboardType="numeric"
                     suffix="ft"
@@ -333,7 +487,7 @@ export const PoolDetailsStep: React.FC = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Pool Features</Text>
           <View style={styles.featuresGrid}>
-            {FEATURES.map((feature) => (
+            {POOL_FEATURES.map((feature) => (
               <TouchableOpacity
                 key={feature.id}
                 style={[
@@ -489,29 +643,33 @@ const styles = StyleSheet.create({
   shapeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -theme.spacing.xs,
+    marginHorizontal: -2,
   },
   shapeButton: {
-    width: '30%',
+    width: '23%',
     aspectRatio: 1,
-    margin: '1.66%',
+    margin: '1%',
     backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.lg,
+    borderRadius: theme.borderRadius.md,
     borderWidth: 2,
     borderColor: theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: theme.spacing.sm,
+    padding: 4,
   },
   shapeButtonActive: {
     backgroundColor: theme.colors.blueGreen,
     borderColor: theme.colors.blueGreen,
   },
   shapeButtonText: {
-    marginTop: theme.spacing.xs,
-    fontSize: 12,
+    fontSize: 9,
     color: theme.colors.text,
     textAlign: 'center',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  shapeIcon: {
+    marginBottom: 2,
   },
   shapeButtonTextActive: {
     color: theme.colors.white,
@@ -612,5 +770,72 @@ const styles = StyleSheet.create({
   checkboxLabel: {
     fontSize: theme.typography.body.fontSize,
     color: theme.colors.darkBlue,
+  },
+  analysisCard: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
+    marginHorizontal: theme.spacing.lg,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(210, 226, 225, 1)',
+  },
+  analysisHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  analysisTitle: {
+    fontSize: theme.typography.h3.fontSize,
+    fontWeight: '600',
+    color: theme.colors.darkBlue,
+    marginLeft: theme.spacing.sm,
+  },
+  analysisDescription: {
+    fontSize: theme.typography.small.fontSize,
+    color: theme.colors.gray,
+    marginBottom: theme.spacing.lg,
+  },
+  analysisButton: {
+    borderRadius: theme.borderRadius.xl,
+    overflow: 'hidden',
+  },
+  analysisButtonCompleted: {
+    opacity: 0.9,
+  },
+  analysisButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.lg,
+  },
+  analysisButtonText: {
+    color: 'white',
+    fontSize: theme.typography.body.fontSize,
+    fontWeight: '600',
+    marginLeft: theme.spacing.sm,
+  },
+  analysisResultBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    marginTop: theme.spacing.sm,
+  },
+  successBanner: {
+    backgroundColor: theme.colors.success + '20',
+  },
+  errorBanner: {
+    backgroundColor: theme.colors.error + '20',
+  },
+  analysisResultText: {
+    marginLeft: theme.spacing.sm,
+    fontSize: theme.typography.small.fontSize,
+    color: theme.colors.text,
+    flex: 1,
   },
 });

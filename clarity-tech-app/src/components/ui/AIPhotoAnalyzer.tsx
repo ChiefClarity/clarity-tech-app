@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
@@ -11,6 +11,7 @@ interface AIPhotoAnalyzerProps {
   maxPhotos?: number;
   description?: string;
   initialPhotos?: string[];
+  allowBatchAnalysis?: boolean;
 }
 
 export const AIPhotoAnalyzer: React.FC<AIPhotoAnalyzerProps> = ({
@@ -18,14 +19,15 @@ export const AIPhotoAnalyzer: React.FC<AIPhotoAnalyzerProps> = ({
   onAnalyze,
   maxPhotos = 1,
   description,
-  initialPhotos = []
+  initialPhotos = [],
+  allowBatchAnalysis = false,
 }) => {
   const [photos, setPhotos] = useState<string[]>(initialPhotos);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const handlePhotoCapture = async () => {
     if (photos.length >= maxPhotos) {
-      Alert.alert('Maximum Photos', `You can only upload ${maxPhotos} photo${maxPhotos > 1 ? 's' : ''}.`);
+      // No alert - just return silently
       return;
     }
 
@@ -35,26 +37,41 @@ export const AIPhotoAnalyzer: React.FC<AIPhotoAnalyzerProps> = ({
       if (!result.cancelled && result.uri) {
         const newPhotos = [...photos, result.uri];
         setPhotos(newPhotos);
-        setIsAnalyzing(true);
         
-        try {
-          await onAnalyze(newPhotos);
-        } catch (error) {
-          console.error('AI analysis failed:', error);
-          Alert.alert('Analysis Error', 'Failed to analyze photo. Please try again.');
-        } finally {
-          setIsAnalyzing(false);
+        // For batch mode, DON'T analyze immediately
+        if (!allowBatchAnalysis) {
+          // Current behavior - analyze immediately
+          setIsAnalyzing(true);
+          try {
+            await onAnalyze(newPhotos);
+          } catch (error) {
+            console.error('AI analysis failed:', error);
+          } finally {
+            setIsAnalyzing(false);
+          }
         }
       }
     } catch (error) {
       console.error('Failed to take photo:', error);
-      Alert.alert('Camera Error', 'Unable to access camera. Please try again.');
     }
   };
 
   const handleRemovePhoto = (index: number) => {
     const newPhotos = photos.filter((_, i) => i !== index);
     setPhotos(newPhotos);
+  };
+
+  const handleBatchAnalysis = async () => {
+    if (photos.length === 0) return;
+    
+    setIsAnalyzing(true);
+    try {
+      await onAnalyze(photos);
+    } catch (error) {
+      console.error('Batch analysis failed:', error);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   return (
@@ -68,7 +85,25 @@ export const AIPhotoAnalyzer: React.FC<AIPhotoAnalyzerProps> = ({
         <Text style={styles.description}>{description}</Text>
       )}
 
-      {photos.length > 0 ? (
+      {/* Photo display grid for multiple photos */}
+      {photos.length > 0 && allowBatchAnalysis && (
+        <View style={styles.photoGrid}>
+          {photos.map((photo, index) => (
+            <View key={index} style={styles.photoThumbnail}>
+              <Image source={{ uri: photo }} style={styles.thumbnailImage} />
+              <TouchableOpacity
+                style={styles.removeThumbnail}
+                onPress={() => handleRemovePhoto(index)}
+              >
+                <Ionicons name="close-circle" size={20} color="white" />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Single photo display for non-batch mode */}
+      {photos.length > 0 && !allowBatchAnalysis && (
         <View style={styles.photoContainer}>
           {photos.map((photo, index) => (
             <View key={index} style={styles.photoWrapper}>
@@ -93,7 +128,10 @@ export const AIPhotoAnalyzer: React.FC<AIPhotoAnalyzerProps> = ({
             </View>
           ))}
         </View>
-      ) : (
+      )}
+
+      {/* Capture button */}
+      {photos.length < maxPhotos && (
         <TouchableOpacity
           style={styles.captureButton}
           onPress={handlePhotoCapture}
@@ -103,18 +141,49 @@ export const AIPhotoAnalyzer: React.FC<AIPhotoAnalyzerProps> = ({
             style={styles.captureGradient}
           >
             <Ionicons name="camera" size={32} color="white" />
-            <Text style={styles.captureText}>Take Photo</Text>
-            <Text style={styles.captureSubtext}>AI will auto-analyze</Text>
+            <Text style={styles.captureText}>
+              {photos.length > 0 ? 'Add Another Photo' : 'Take Photo'}
+            </Text>
+            <Text style={styles.captureSubtext}>
+              {allowBatchAnalysis ? `${photos.length}/${maxPhotos} photos` : 'AI will auto-analyze'}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
       )}
 
-      {photos.length > 0 && photos.length < maxPhotos && (
+      {/* Add more photos button for non-batch mode */}
+      {photos.length > 0 && photos.length < maxPhotos && !allowBatchAnalysis && (
         <TouchableOpacity
           style={styles.addMoreButton}
           onPress={handlePhotoCapture}
         >
           <Text style={styles.addMoreText}>+ Take Another Photo</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Batch analysis button */}
+      {allowBatchAnalysis && photos.length > 0 && (
+        <TouchableOpacity
+          style={[styles.analyzeButton, isAnalyzing && styles.analyzeButtonDisabled]}
+          onPress={handleBatchAnalysis}
+          disabled={isAnalyzing}
+        >
+          <LinearGradient
+            colors={[theme.colors.blueGreen, theme.colors.darkBlue]}
+            style={styles.analyzeGradient}
+          >
+            {isAnalyzing ? (
+              <>
+                <Ionicons name="sync" size={20} color="white" />
+                <Text style={styles.analyzeText}>Analyzing {photos.length} photos...</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="sparkles" size={20} color="white" />
+                <Text style={styles.analyzeText}>Analyze All Photos</Text>
+              </>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
       )}
     </View>
@@ -224,4 +293,49 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.aiPink,
   },
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -4,
+    marginBottom: theme.spacing.md,
+  },
+  photoThumbnail: {
+    width: '31%',
+    aspectRatio: 1,
+    margin: '1.5%',
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  removeThumbnail: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+  },
+  analyzeButton: {
+    marginTop: theme.spacing.md,
+    borderRadius: theme.borderRadius.xl,
+    overflow: 'hidden',
+  },
+  analyzeButtonDisabled: {
+    opacity: 0.7,
+  },
+  analyzeGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.lg,
+    gap: theme.spacing.sm,
+  },
+  analyzeText: {
+    color: 'white',
+    fontSize: theme.typography.body.fontSize,
+    fontWeight: '600',
+  },
 });
+
+export default AIPhotoAnalyzer;

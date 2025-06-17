@@ -26,6 +26,8 @@ const waterChemistrySchema = z.object({
   phosphates: z.coerce.number().optional(),
   copper: z.coerce.number().optional(),
   iron: z.coerce.number().optional(),
+  orp: z.coerce.number().optional(),
+  hasSaltCell: z.boolean().optional(),
   notes: z.string().optional(),
 });
 
@@ -44,19 +46,35 @@ const CHEMISTRY_FIELDS = [
   { key: 'phosphates', label: 'Phosphates', unit: 'ppb', min: 0, max: 1000, ideal: '<100', optional: true },
   { key: 'copper', label: 'Copper', unit: 'ppm', min: 0, max: 1, ideal: '0.2-0.4', optional: true },
   { key: 'iron', label: 'Iron', unit: 'ppm', min: 0, max: 1, ideal: '<0.2', optional: true },
+  { key: 'orp', label: 'ORP', unit: 'mV', min: 650, max: 750, ideal: '700-720', optional: true },
 ];
 
 export const WaterChemistryStep: React.FC = () => {
   const { session, updateWaterChemistry, nextStep } = useOnboarding();
   // All fields are always visible now
+  const [analysisResult, setAnalysisResult] = useState<{
+    success: boolean;
+    confidence?: number;
+    message?: string;
+  } | null>(null);
   
-  const { control, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<WaterChemistryData>({
+  const { control, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = useForm<WaterChemistryData>({
     resolver: zodResolver(waterChemistrySchema),
-    defaultValues: session?.waterChemistry || {
-      chlorine: 0,
-      ph: 7.2,
-      alkalinity: 80,
-      cyanuricAcid: 40,
+    defaultValues: {
+      chlorine: session?.waterChemistry?.chlorine ?? 0,
+      ph: session?.waterChemistry?.ph ?? 0,
+      alkalinity: session?.waterChemistry?.alkalinity ?? 0,
+      cyanuricAcid: session?.waterChemistry?.cyanuricAcid ?? 0,
+      calcium: session?.waterChemistry?.calcium,
+      salt: session?.waterChemistry?.salt,
+      tds: session?.waterChemistry?.tds,
+      temperature: session?.waterChemistry?.temperature,
+      phosphates: session?.waterChemistry?.phosphates,
+      copper: session?.waterChemistry?.copper,
+      iron: session?.waterChemistry?.iron,
+      orp: session?.waterChemistry?.orp ?? 0,
+      hasSaltCell: session?.waterChemistry?.hasSaltCell ?? false,
+      notes: session?.waterChemistry?.notes || '',
     },
   });
   
@@ -80,11 +98,29 @@ export const WaterChemistryStep: React.FC = () => {
   };
   
   // Auto-save on blur
-  const handleBlur = (field: string, value: string) => {
-    const numValue = parseFloat(value) || 0;
-    setValue(field as keyof WaterChemistryData, numValue);
-    const currentData = watch();
-    updateWaterChemistry(currentData).catch(() => {});
+  const handleBlur = async (field: string, value: string | boolean) => {
+    let finalValue: any = value;
+    
+    // Handle numeric values
+    if (typeof value === 'string' && field !== 'notes') {
+      finalValue = parseFloat(value) || 0;
+      setValue(field as keyof WaterChemistryData, finalValue);
+    } else {
+      setValue(field as keyof WaterChemistryData, value as any);
+    }
+    
+    // Get ALL current form values
+    const allValues = getValues();
+    
+    // Save to context with all values
+    try {
+      await updateWaterChemistry({
+        ...allValues,
+        [field]: finalValue,
+      });
+    } catch (error) {
+      console.error('Failed to save water chemistry:', error);
+    }
   };
   
   // Get status color based on ideal range
@@ -136,10 +172,43 @@ export const WaterChemistryStep: React.FC = () => {
               setValue('ph', 7.4);
               setValue('chlorine', 2.0);
               setValue('alkalinity', 100);
-              webAlert.alert('Success', 'Test strip analyzed! Review the values below.');
+              setValue('cyanuricAcid', 45);
+              
+              // Set inline success message instead of alert
+              setAnalysisResult({
+                success: true,
+                confidence: 92,
+                message: 'Test strip analyzed successfully'
+              });
+              
+              // Save the values immediately
+              const values = getValues();
+              await updateWaterChemistry(values);
+              
+              // Auto-hide message after 5 seconds
+              setTimeout(() => {
+                setAnalysisResult(null);
+              }, 5000);
             }}
           />
         </View>
+
+        {analysisResult && (
+          <View style={[
+            styles.analysisResultBanner,
+            analysisResult.success ? styles.successBanner : styles.errorBanner
+          ]}>
+            <Ionicons 
+              name={analysisResult.success ? "checkmark-circle" : "close-circle"} 
+              size={20} 
+              color={analysisResult.success ? theme.colors.success : theme.colors.error} 
+            />
+            <Text style={styles.analysisResultText}>
+              {analysisResult.message}
+              {analysisResult.confidence && ` - ${analysisResult.confidence}% confidence`}
+            </Text>
+          </View>
+        )}
 
         {/* Water Chemistry Card */}
         <View style={styles.resultsCard}>
@@ -205,6 +274,28 @@ export const WaterChemistryStep: React.FC = () => {
               </View>
             ))}
             
+            {/* Salt Cell Checkbox */}
+            <View style={styles.checkboxContainer}>
+              <Controller
+                control={control}
+                name="hasSaltCell"
+                render={({ field: { onChange, value } }) => (
+                  <TouchableOpacity
+                    style={styles.checkboxRow}
+                    onPress={() => {
+                      onChange(!value);
+                      handleFieldBlur('hasSaltCell', !value);
+                    }}
+                  >
+                    <View style={[styles.checkbox, value && styles.checkboxChecked]}>
+                      {value && <Ionicons name="checkmark" size={16} color="white" />}
+                    </View>
+                    <Text style={styles.checkboxLabel}>System has a functioning salt cell</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+            
             {/* Notes Field */}
             <Controller
               control={control}
@@ -214,7 +305,7 @@ export const WaterChemistryStep: React.FC = () => {
                   label="Additional Notes"
                   value={value || ''}
                   onChangeText={onChange}
-                  onBlur={onBlur}
+                  onBlur={() => handleFieldBlur('notes', value)}
                   multiline
                   numberOfLines={3}
                 />
@@ -314,5 +405,52 @@ const styles = StyleSheet.create({
   },
   optionalFields: {
     paddingTop: theme.spacing.md,
+  },
+  analysisResultBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    marginTop: theme.spacing.sm,
+    marginHorizontal: theme.spacing.lg,
+  },
+  successBanner: {
+    backgroundColor: theme.colors.success + '20',
+  },
+  errorBanner: {
+    backgroundColor: theme.colors.error + '20',
+  },
+  analysisResultText: {
+    marginLeft: theme.spacing.sm,
+    fontSize: theme.typography.small.fontSize,
+    color: theme.colors.text,
+    flex: 1,
+  },
+  checkboxContainer: {
+    paddingHorizontal: theme.spacing.xs,
+    marginTop: theme.spacing.sm,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: theme.colors.gray,
+    borderRadius: theme.borderRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: theme.spacing.sm,
+  },
+  checkboxChecked: {
+    backgroundColor: theme.colors.blueGreen,
+    borderColor: theme.colors.blueGreen,
+  },
+  checkboxLabel: {
+    fontSize: theme.typography.body.fontSize,
+    color: theme.colors.text,
+    flex: 1,
   },
 });

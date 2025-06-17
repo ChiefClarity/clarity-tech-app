@@ -15,6 +15,7 @@ export const VoiceNoteStep: React.FC = () => {
   const [hasRecorded, setHasRecorded] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [recordingError, setRecordingError] = useState<string>('');
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -70,6 +71,7 @@ export const VoiceNoteStep: React.FC = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       const chunks: Blob[] = [];
+      const startTime = Date.now(); // Track actual time
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
@@ -81,19 +83,25 @@ export const VoiceNoteStep: React.FC = () => {
         // Stop all tracks
         stream.getTracks().forEach(track => track.stop());
         
+        // Clear timer
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+        
+        // Use actual elapsed time for validation
+        const actualDuration = Math.floor((Date.now() - startTime) / 1000);
+        
         // Create blob from chunks
         const blob = new Blob(chunks, { type: 'audio/webm' });
         setAudioBlob(blob);
         
-        // Check duration
-        if (recordingDuration < 30) {
-          webAlert.alert(
-            'Recording Too Short',
-            'Please record at least 30 seconds of observations about the pool.',
-            [{ text: 'OK' }]
-          );
+        // Check duration with actual time
+        if (actualDuration < 30) {
+          // Show inline message instead of alert
+          setRecordingError('Please record at least 30 seconds of observations about the pool.');
           setRecordingDuration(0);
           setAudioBlob(null);
+          setHasRecorded(false);
           return;
         }
         
@@ -115,7 +123,7 @@ export const VoiceNoteStep: React.FC = () => {
           const base64 = reader.result as string;
           await recordVoiceNote(base64, recordingDuration);
           setHasRecorded(true);
-          webAlert.alert('Success', 'Voice note saved successfully!');
+          // Success - no popup needed
         };
       };
 
@@ -123,11 +131,12 @@ export const VoiceNoteStep: React.FC = () => {
       mediaRecorder.start();
       setIsRecording(true);
       setRecordingDuration(0);
+      setRecordingError(''); // Clear any previous errors
 
-      // Start duration timer
+      // Start duration timer with proper ref
       let seconds = 0;
       timerRef.current = setInterval(() => {
-        seconds++;
+        seconds = Math.floor((Date.now() - startTime) / 1000); // Use actual elapsed time
         setRecordingDuration(seconds);
         
         // Auto-stop at 3 minutes
@@ -261,6 +270,14 @@ export const VoiceNoteStep: React.FC = () => {
             <Text style={styles.durationText}>30 seconds - 3 minutes</Text>
           </View>
         </View>
+        
+        {/* Error Message */}
+        {recordingError && (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle" size={20} color={theme.colors.error} />
+            <Text style={styles.errorText}>{recordingError}</Text>
+          </View>
+        )}
         
         {/* Recording Interface */}
         <View style={styles.recordingSection}>
@@ -495,5 +512,20 @@ const styles = StyleSheet.create({
   rerecordButtonText: {
     fontSize: theme.typography.small.fontSize,
     color: theme.colors.gray,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.error + '20',
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  errorText: {
+    marginLeft: theme.spacing.sm,
+    fontSize: theme.typography.small.fontSize,
+    color: theme.colors.error,
+    flex: 1,
   },
 });

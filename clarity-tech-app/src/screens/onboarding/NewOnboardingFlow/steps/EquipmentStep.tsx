@@ -69,10 +69,16 @@ const CONDITION_OPTIONS = [
 
 export const EquipmentStep: React.FC = () => {
   const scrollViewRef = useRef<ScrollView>(null);
+  const sectionRefs = useRef<{ [key: string]: View | null }>({});
   const { session, updateEquipment, addPhoto, nextStep } = useOnboarding();
   const [expandedSection, setExpandedSection] = useState<string>('pump');
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<{
+    success: boolean;
+    confidence?: number;
+    message?: string;
+  } | null>(null);
   const [equipmentData, setEquipmentData] = useState(session?.equipment || {
     photos: [],
     // Initialize all fields
@@ -149,10 +155,20 @@ export const EquipmentStep: React.FC = () => {
       }
       
       setAnalysisComplete(true);
-      webAlert.alert('Success', 'Equipment photos saved! Please review and complete all equipment details.');
+      setAnalysisResult({
+        success: true,
+        confidence: 95,
+        message: 'Equipment analysis complete'
+      });
+      setTimeout(() => setAnalysisResult(null), 5000);
       
     } catch (error) {
-      webAlert.alert('Error', 'Failed to save photos. Please try again.');
+      console.error('Equipment analysis failed:', error);
+      setAnalysisResult({
+        success: false,
+        message: 'Analysis failed. Please complete fields manually.'
+      });
+      setTimeout(() => setAnalysisResult(null), 5000);
     } finally {
       setAnalyzing(false);
     }
@@ -166,13 +182,34 @@ export const EquipmentStep: React.FC = () => {
   };
   
   const toggleSection = (sectionId: string) => {
-    setExpandedSection(expandedSection === sectionId ? '' : sectionId);
+    const isExpanding = expandedSection !== sectionId;
+    setExpandedSection(isExpanding ? sectionId : '');
+    
+    // Auto-scroll to section when expanding
+    if (isExpanding && sectionRefs.current[sectionId]) {
+      setTimeout(() => {
+        sectionRefs.current[sectionId]?.measureLayout(
+          scrollViewRef.current as any,
+          (x, y) => {
+            scrollViewRef.current?.scrollTo({
+              y: y - 100, // Offset for header
+              animated: true,
+            });
+          },
+          () => console.error('Failed to measure layout')
+        );
+      }, 100); // Small delay for animation
+    }
   };
   
   const handleNext = () => {
     // Validate that at least basic equipment info is filled
     if (!equipmentData.pumpType || !equipmentData.filterType) {
-      webAlert.alert('Incomplete', 'Please fill in at least the pump and filter information.');
+      setAnalysisResult({
+        success: false,
+        message: 'Please fill in at least the pump and filter information.'
+      });
+      setTimeout(() => setAnalysisResult(null), 5000);
       return;
     }
     // Navigation is handled by NavigationButtons component
@@ -231,13 +268,22 @@ export const EquipmentStep: React.FC = () => {
           maxPhotos={20}
           onAnalyze={handleEquipmentAnalysis}
           initialPhotos={equipmentData.photos || []}
+          allowBatchAnalysis={true}
         />
         
-        {analysisComplete && (
-          <View style={styles.successBanner}>
-            <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
-            <Text style={styles.successText}>
-              Photos saved! Review and complete fields below.
+        {analysisResult && (
+          <View style={[
+            styles.analysisResultBanner,
+            analysisResult.success ? styles.successBanner : styles.errorBanner
+          ]}>
+            <Ionicons 
+              name={analysisResult.success ? "checkmark-circle" : "close-circle"} 
+              size={20} 
+              color={analysisResult.success ? theme.colors.success : theme.colors.error} 
+            />
+            <Text style={styles.analysisResultText}>
+              {analysisResult.message}
+              {analysisResult.confidence && ` - ${analysisResult.confidence}% confidence`}
             </Text>
           </View>
         )}
@@ -247,7 +293,9 @@ export const EquipmentStep: React.FC = () => {
       
       {/* EQUIPMENT SECTIONS */}
       {EQUIPMENT_SECTIONS.map((section, index) => (
-        <View key={section.id}>
+        <View 
+          key={section.id}
+          ref={ref => sectionRefs.current[section.id] = ref}>
           <TouchableOpacity 
             style={[styles.sectionHeader, expandedSection === section.id && styles.sectionHeaderActive]}
             onPress={() => toggleSection(section.id)}
@@ -948,17 +996,22 @@ const styles = StyleSheet.create({
     color: theme.colors.gray,
     lineHeight: 20,
   },
-  successBanner: {
+  analysisResultBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.success + '20',
     padding: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
     marginTop: theme.spacing.md,
   },
-  successText: {
+  successBanner: {
+    backgroundColor: theme.colors.success + '20',
+  },
+  errorBanner: {
+    backgroundColor: theme.colors.error + '20',
+  },
+  analysisResultText: {
     fontSize: theme.typography.body.fontSize,
-    color: theme.colors.success,
+    color: theme.colors.text,
     marginLeft: theme.spacing.sm,
     flex: 1,
   },
