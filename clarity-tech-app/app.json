@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "Clarity Tech",
+    "slug": "clarity-tech",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "platforms": ["ios", "android", "web"],
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#D2E2E1"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.claritypoolservices.tech",
+      "requireFullScreen": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#D2E2E1"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.claritypoolservices.tech"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "name": "Clarity Pool Tech",
+      "shortName": "Clarity Tech",
+      "display": "standalone",
+      "orientation": "portrait",
+      "lang": "en",
+      "scope": "/",
+      "startUrl": "/",
+      "backgroundColor": "#D2E2E1",
+      "themeColor": "#577C8E",
+      "description": "Pool Service Excellence",
+      "dir": "auto",
+      "barStyle": "default",
+      "preferRelatedApplications": false,
+      "categories": ["business", "productivity"],
+      "meta": {
+        "screen-orientation": "portrait"
+      }
+    },
+    "plugins": []
+  }
+}
