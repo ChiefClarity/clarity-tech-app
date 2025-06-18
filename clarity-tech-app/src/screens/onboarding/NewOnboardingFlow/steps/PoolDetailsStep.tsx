@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { 
   View, 
   ScrollView, 
@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet 
 } from 'react-native';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useFormContext, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Ionicons } from '@expo/vector-icons';
@@ -91,6 +91,106 @@ const poolDetailsSchema = z.object({
 
 type PoolDetailsData = z.infer<typeof poolDetailsSchema>;
 
+// Memoized skimmer mini-section component
+const SkimmerMiniSection = memo(({ index }: { index: number }) => {
+  const { control, watch, setValue } = useFormContext<PoolDetailsData>();
+  
+  return (
+    <View style={styles.skimmerMiniSection}>
+      <Text style={styles.miniSectionTitle}>Skimmer #{index + 1}</Text>
+      
+      <Controller
+        control={control}
+        name={`skimmer${index + 1}Functioning` as any}
+        render={({ field: { onChange, value } }) => (
+          <TouchableOpacity
+            style={styles.checkboxRow}
+            onPress={() => onChange(!value)}
+          >
+            <View style={[styles.checkbox, value && styles.checkboxChecked]}>
+              {value && <Ionicons name="checkmark" size={16} color="white" />}
+            </View>
+            <Text style={styles.checkboxLabel}>Functioning properly</Text>
+          </TouchableOpacity>
+        )}
+      />
+      
+      <Text style={styles.fieldLabel}>Basket Condition</Text>
+      <View style={styles.conditionGrid}>
+        {CONDITION_OPTIONS.map((option) => (
+          <TouchableOpacity
+            key={option.value}
+            style={[
+              styles.conditionOption,
+              watch(`skimmer${index + 1}BasketCondition` as any) === option.value && { 
+                backgroundColor: option.color + '20',
+                borderColor: option.color 
+              },
+            ]}
+            onPress={() => setValue(`skimmer${index + 1}BasketCondition` as any, option.value)}
+          >
+            <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
+            <Text style={[
+              styles.conditionLabel,
+              watch(`skimmer${index + 1}BasketCondition` as any) === option.value && { 
+                color: option.color, 
+                fontWeight: '600' 
+              }
+            ]}>
+              {option.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      
+      <Text style={styles.fieldLabel}>Lid Condition</Text>
+      <View style={styles.conditionGrid}>
+        {CONDITION_OPTIONS.map((option) => (
+          <TouchableOpacity
+            key={option.value}
+            style={[
+              styles.conditionOption,
+              watch(`skimmer${index + 1}LidCondition` as any) === option.value && { 
+                backgroundColor: option.color + '20',
+                borderColor: option.color 
+              },
+            ]}
+            onPress={() => setValue(`skimmer${index + 1}LidCondition` as any, option.value)}
+          >
+            <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
+            <Text style={[
+              styles.conditionLabel,
+              watch(`skimmer${index + 1}LidCondition` as any) === option.value && { 
+                color: option.color, 
+                fontWeight: '600' 
+              }
+            ]}>
+              {option.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      
+      <Controller
+        control={control}
+        name={`skimmer${index + 1}LidModel` as any}
+        render={({ field: { onChange, onBlur, value } }) => (
+          <ModernInput
+            label="Lid Model #"
+            value={value || ''}
+            onChangeText={onChange}
+            onBlur={onBlur}
+            autoCorrect={false}
+            autoCapitalize="none"
+            returnKeyType="done"
+            blurOnSubmit={true}
+          />
+        )}
+      />
+    </View>
+  );
+});
+
 export const PoolDetailsStep: React.FC = () => {
   const { session, updatePoolDetails, nextStep } = useOnboarding();
   const [expandedSections, setExpandedSections] = useState<string[]>(['size-shape']);
@@ -105,18 +205,19 @@ export const PoolDetailsStep: React.FC = () => {
   const scrollViewRef = useRef<ScrollView>(null);
   const sectionRefs = useRef<{ [key: string]: View | null }>({});
   
-  const { control, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = useForm<PoolDetailsData>({
+  const formMethods = useForm<PoolDetailsData>({
     resolver: zodResolver(poolDetailsSchema),
     defaultValues: {
-      poolType: session?.poolDetails?.type || 'inground',
+      ...session?.poolDetails,
+      poolType: session?.poolDetails?.poolType || session?.poolDetails?.type || 'inground',
       shape: session?.poolDetails?.shape || 'rectangle',
-      length: session?.poolDetails?.length || 0,
-      width: session?.poolDetails?.width || 0,
-      avgDepth: session?.poolDetails?.avgDepth || 0,
-      deepEndDepth: session?.poolDetails?.deepEndDepth || 0,
-      shallowEndDepth: session?.poolDetails?.shallowEndDepth || 0,
-      volume: session?.poolDetails?.volume || 0,
-      surfaceArea: session?.poolDetails?.surfaceArea || 0,
+      length: session?.poolDetails?.length || undefined,
+      width: session?.poolDetails?.width || undefined,
+      avgDepth: session?.poolDetails?.avgDepth || undefined,
+      deepEndDepth: session?.poolDetails?.deepEndDepth || undefined,
+      shallowEndDepth: session?.poolDetails?.shallowEndDepth || undefined,
+      volume: session?.poolDetails?.volume || undefined,
+      surfaceArea: session?.poolDetails?.surfaceArea || undefined,
       surfaceMaterial: session?.poolDetails?.surfaceMaterial || undefined,
       surfaceCondition: session?.poolDetails?.surfaceCondition || undefined,
       features: session?.poolDetails?.features || [],
@@ -129,6 +230,8 @@ export const PoolDetailsStep: React.FC = () => {
       skimmerCount: session?.poolDetails?.skimmerCount || 0,
     },
   });
+  
+  const { control, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = formMethods;
   
   const formValues = watch();
   
@@ -459,12 +562,14 @@ export const PoolDetailsStep: React.FC = () => {
             render={({ field: { onChange, onBlur, value } }) => (
               <ModernInput
                 label="Length"
-                value={String(value || '')}
-                onChangeText={(text) => onChange(parseFloat(text) || 0)}
+                value={value ? String(value) : ''}
+                onChangeText={(text) => {
+                  const num = parseFloat(text);
+                  onChange(isNaN(num) ? undefined : num);
+                }}
                 onBlur={() => handleFieldBlur('length', value)}
                 error={errors.length?.message}
                 keyboardType="numeric"
-                suffix="ft"
               />
             )}
           />
@@ -476,12 +581,14 @@ export const PoolDetailsStep: React.FC = () => {
             render={({ field: { onChange, onBlur, value } }) => (
               <ModernInput
                 label="Width"
-                value={String(value || '')}
-                onChangeText={(text) => onChange(parseFloat(text) || 0)}
+                value={value ? String(value) : ''}
+                onChangeText={(text) => {
+                  const num = parseFloat(text);
+                  onChange(isNaN(num) ? undefined : num);
+                }}
                 onBlur={() => handleFieldBlur('width', value)}
                 error={errors.width?.message}
                 keyboardType="numeric"
-                suffix="ft"
               />
             )}
           />
@@ -493,12 +600,14 @@ export const PoolDetailsStep: React.FC = () => {
             render={({ field: { onChange, onBlur, value } }) => (
               <ModernInput
                 label="Avg Depth"
-                value={String(value || '')}
-                onChangeText={(text) => onChange(parseFloat(text) || 0)}
+                value={value ? String(value) : ''}
+                onChangeText={(text) => {
+                  const num = parseFloat(text);
+                  onChange(isNaN(num) ? undefined : num);
+                }}
                 onBlur={() => handleFieldBlur('avgDepth', value)}
                 error={errors.avgDepth?.message}
                 keyboardType="numeric"
-                suffix="ft"
               />
             )}
           />
@@ -512,14 +621,17 @@ export const PoolDetailsStep: React.FC = () => {
           <Controller
             control={control}
             name="shallowEndDepth"
-            render={({ field: { onChange, value } }) => (
+            render={({ field: { onChange, onBlur, value } }) => (
               <ModernInput
                 label="Shallow End"
-                value={value?.toString() || ''}
-                onChangeText={(text) => onChange(parseFloat(text) || 0)}
-                onBlur={() => handleFieldBlur('shallowEndDepth', value)}
+                value={value ? value.toString() : ''}
+                onChangeText={(text) => {
+                  const num = parseFloat(text);
+                  onChange(isNaN(num) ? undefined : num);
+                }}
+                onBlur={onBlur}
                 keyboardType="numeric"
-                suffix="ft"
+                placeholder="3.0 ft"
               />
             )}
           />
@@ -528,14 +640,17 @@ export const PoolDetailsStep: React.FC = () => {
           <Controller
             control={control}
             name="deepEndDepth"
-            render={({ field: { onChange, value } }) => (
+            render={({ field: { onChange, onBlur, value } }) => (
               <ModernInput
                 label="Deep End"
-                value={value?.toString() || ''}
-                onChangeText={(text) => onChange(parseFloat(text) || 0)}
-                onBlur={() => handleFieldBlur('deepEndDepth', value)}
+                value={value ? value.toString() : ''}
+                onChangeText={(text) => {
+                  const num = parseFloat(text);
+                  onChange(isNaN(num) ? undefined : num);
+                }}
+                onBlur={onBlur}
                 keyboardType="numeric"
-                suffix="ft"
+                placeholder="8.0 ft"
               />
             )}
           />
@@ -722,7 +837,7 @@ export const PoolDetailsStep: React.FC = () => {
     </>
   );
   
-  const SkimmersSection = () => (
+  const SkimmersSection = memo(() => (
     <>
       {/* AI Skimmer Detection - MOVE TO TOP */}
       <View style={styles.aiAnalyzerSection}>
@@ -777,104 +892,11 @@ export const PoolDetailsStep: React.FC = () => {
       
       {/* Dynamic Skimmer Mini-Sections */}
       {Array.from({ length: skimmerCount }).map((_, index) => (
-        <View key={index} style={styles.skimmerMiniSection}>
-          <Text style={styles.miniSectionTitle}>Skimmer #{index + 1}</Text>
-          
-          <Controller
-            control={control}
-            name={`skimmer${index + 1}Functioning` as any}
-            render={({ field: { onChange, value } }) => (
-              <TouchableOpacity
-                style={styles.checkboxRow}
-                onPress={() => onChange(!value)}
-              >
-                <View style={[styles.checkbox, value && styles.checkboxChecked]}>
-                  {value && <Ionicons name="checkmark" size={16} color="white" />}
-                </View>
-                <Text style={styles.checkboxLabel}>Functioning properly</Text>
-              </TouchableOpacity>
-            )}
-          />
-          
-          <Text style={styles.fieldLabel}>Basket Condition</Text>
-          <View style={styles.conditionGrid}>
-            {CONDITION_OPTIONS.map((option) => (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.conditionOption,
-                  watch(`skimmer${index + 1}BasketCondition` as any) === option.value && { 
-                    backgroundColor: option.color + '20',
-                    borderColor: option.color 
-                  },
-                ]}
-                onPress={() => setValue(`skimmer${index + 1}BasketCondition` as any, option.value)}
-              >
-                <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
-                <Text style={[
-                  styles.conditionLabel,
-                  watch(`skimmer${index + 1}BasketCondition` as any) === option.value && { 
-                    color: option.color, 
-                    fontWeight: '600' 
-                  }
-                ]}>
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          
-          {/* Skimmer Lid Condition - ADD this after Basket Condition */}
-          <Text style={styles.fieldLabel}>Lid Condition</Text>
-          <View style={styles.conditionGrid}>
-            {CONDITION_OPTIONS.map((option) => (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.conditionOption,
-                  watch(`skimmer${index + 1}LidCondition` as any) === option.value && { 
-                    backgroundColor: option.color + '20',
-                    borderColor: option.color 
-                  },
-                ]}
-                onPress={() => setValue(`skimmer${index + 1}LidCondition` as any, option.value)}
-              >
-                <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
-                <Text style={[
-                  styles.conditionLabel,
-                  watch(`skimmer${index + 1}LidCondition` as any) === option.value && { 
-                    color: option.color, 
-                    fontWeight: '600' 
-                  }
-                ]}>
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          
-          <Controller
-            control={control}
-            name={`skimmer${index + 1}LidModel` as any}
-            render={({ field: { onChange, onBlur, value } }) => (
-              <ModernInput
-                label="Lid Model #"
-                value={value || ''}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                // Add these props to prevent scroll issues:
-                autoCorrect={false}
-                autoCapitalize="none"
-                returnKeyType="done"
-                blurOnSubmit={true}
-              />
-            )}
-          />
-        </View>
+        <SkimmerMiniSection key={index} index={index} />
       ))}
       
     </>
-  );
+  ));
   
   const DeckSection = () => (
     <>
@@ -949,7 +971,8 @@ export const PoolDetailsStep: React.FC = () => {
   );
   
   return (
-    <View style={styles.container}>
+    <FormProvider {...formMethods}>
+      <View style={styles.container}>
       <LinearGradient
         colors={[theme.colors.blueGreen, theme.colors.darkBlue]}
         start={{ x: 0, y: 0 }}
@@ -1007,6 +1030,7 @@ export const PoolDetailsStep: React.FC = () => {
         <AIInsightsBox stepName="poolDetails" />
       </ScrollView>
     </View>
+    </FormProvider>
   );
 };
 
@@ -1157,13 +1181,6 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
   },
   calculatedField: {
-    backgroundColor: theme.colors.seaFoam + '30',
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    marginTop: theme.spacing.md,
-    alignItems: 'center',
-  },
-  calculatedField: {
     backgroundColor: theme.colors.grayLight,
     opacity: 0.9,
     // Ensure proper text padding
@@ -1276,6 +1293,33 @@ const styles = StyleSheet.create({
   checkboxLabel: {
     fontSize: theme.typography.body.fontSize,
     color: theme.colors.darkBlue,
+  },
+  calculatedFieldContainer: {
+    marginTop: theme.spacing.md,
+  },
+  calculatedFieldLabel: {
+    fontSize: theme.typography.caption.fontSize,
+    color: theme.colors.gray,
+    marginBottom: theme.spacing.xs,
+  },
+  calculatedFieldValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.grayLight,
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  calculatedFieldText: {
+    fontSize: theme.typography.body.fontSize,
+    color: theme.colors.darkBlue,
+    flex: 1,
+  },
+  calculatedFieldSuffix: {
+    fontSize: theme.typography.body.fontSize,
+    color: theme.colors.gray,
   },
   aiAnalyzerSection: {
     backgroundColor: theme.colors.aiPink + '10',
