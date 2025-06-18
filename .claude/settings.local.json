@@ -4,7 +4,10 @@
       "Bash(find:*)",
       "Bash(grep:*)",
       "Bash(mkdir:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(ls:*)",
+      "Bash(rm:*)",
+      "Bash(expo start:*)"
     ],
     "deny": []
   }

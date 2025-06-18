@@ -1,78 +1,32 @@
-run = "cd clarity-tech-app && npm run web-build && npm run serve"
-entrypoint = "index.js"
 modules = ["nodejs-20"]
-[deployment]
-run = ["sh", "-c", "cd clarity-tech-app && npm run web-build && npm run serve"]
 
 [[ports]]
 localPort = 3000
-externalPort = 3000
-
-[[ports]]
-localPort = 3001
-externalPort = 80
-
-[[ports]]
-localPort = 3002
-externalPort = 3002
-
-[[ports]]
-localPort = 3004
-externalPort = 3003
+externalPort = 4200
 
 [[ports]]
 localPort = 8081
 externalPort = 8081
 
 [[ports]]
+localPort = 12050
+externalPort = 3003
+exposeLocalhost = true
+
+[[ports]]
+localPort = 17642
+externalPort = 3002
+exposeLocalhost = true
+
+[[ports]]
 localPort = 19006
+externalPort = 3000
+
+[[ports]]
+localPort = 19007
 externalPort = 3001
 
 [[ports]]
-localPort = 29341
-externalPort = 4200
-exposeLocalhost = true
-
-[[ports]]
-localPort = 34075
-externalPort = 6000
-exposeLocalhost = true
-
-[[ports]]
-localPort = 38113
-externalPort = 5000
-exposeLocalhost = true
-
-[[ports]]
-localPort = 38829
-externalPort = 8000
-exposeLocalhost = true
-
-[[ports]]
-localPort = 42565
-externalPort = 5173
-
-[[ports]]
-localPort = 42728
-externalPort = 9000
-exposeLocalhost = true
-
-[[ports]]
-localPort = 48190
-externalPort = 8008
-exposeLocalhost = true
-
-[[ports]]
-localPort = 56538
-externalPort = 6800
-exposeLocalhost = true
-
-[[ports]]
-localPort = 59558
-externalPort = 8080
-exposeLocalhost = true
-
-[[ports]]
-localPort = 62018
-externalPort = 8099
+localPort = 30620
+externalPort = 80
 exposeLocalhost = true

@@ -16,6 +16,7 @@ export const VoiceNoteStep: React.FC = () => {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [recordingError, setRecordingError] = useState<string>('');
+  const [playbackError, setPlaybackError] = useState<string>('');
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -166,43 +167,56 @@ export const VoiceNoteStep: React.FC = () => {
   };
   
   const playRecording = async () => {
-    if (!session?.voiceNote?.uri && !audioBlob) return;
+    if (!audioBlob && !session?.voiceNote?.uri) {
+      console.error('No audio blob available');
+      return;
+    }
     
     try {
+      // Stop current playback if any
       if (audioRef.current && !audioRef.current.paused) {
         audioRef.current.pause();
         setIsPlaying(false);
         return;
       }
       
-      // Create audio element
-      const audio = new Audio();
-      
-      if (session?.voiceNote?.uri) {
-        // Play from saved base64
-        audio.src = session.voiceNote.uri;
-      } else if (audioBlob) {
-        // Play from blob
-        const url = URL.createObjectURL(audioBlob);
-        audio.src = url;
+      // Create audio element if not exists
+      if (!audioRef.current) {
+        audioRef.current = new Audio();
       }
       
-      audioRef.current = audio;
+      // Create object URL from blob or use saved URI
+      let audioUrl: string;
+      if (audioBlob) {
+        audioUrl = URL.createObjectURL(audioBlob);
+      } else if (session?.voiceNote?.uri) {
+        audioUrl = session.voiceNote.uri;
+      } else {
+        throw new Error('No audio source available');
+      }
       
-      audio.onended = () => {
+      audioRef.current.src = audioUrl;
+      
+      // Add event listeners
+      audioRef.current.onended = () => {
         setIsPlaying(false);
+        if (audioBlob) URL.revokeObjectURL(audioUrl); // Clean up
       };
       
-      audio.onerror = () => {
-        webAlert.alert('Playback Error', 'Failed to play recording.');
+      audioRef.current.onerror = (e) => {
+        console.error('Audio playback error:', e);
         setIsPlaying(false);
+        // Show inline error instead of alert
+        setPlaybackError('Unable to play recording. This is normal in test mode.');
+        setTimeout(() => setPlaybackError(''), 3000);
       };
       
-      await audio.play();
+      await audioRef.current.play();
       setIsPlaying(true);
-      
-    } catch (err) {
-      webAlert.alert('Playback Error', 'Failed to play recording.');
+    } catch (error) {
+      console.error('Playback failed:', error);
+      setPlaybackError('Playback not available in test mode');
+      setTimeout(() => setPlaybackError(''), 3000);
       setIsPlaying(false);
     }
   };
@@ -325,6 +339,11 @@ export const VoiceNoteStep: React.FC = () => {
                   <Text style={styles.rerecordButtonText}>Re-record</Text>
                 </TouchableOpacity>
               </View>
+              
+              {/* Playback Error Message */}
+              {playbackError && (
+                <Text style={styles.playbackError}>{playbackError}</Text>
+              )}
             </View>
           ) : (
             <View style={styles.recordingReady}>
@@ -527,5 +546,11 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.small.fontSize,
     color: theme.colors.error,
     flex: 1,
+  },
+  playbackError: {
+    marginTop: theme.spacing.md,
+    fontSize: theme.typography.small.fontSize,
+    color: theme.colors.warning,
+    textAlign: 'center',
   },
 });

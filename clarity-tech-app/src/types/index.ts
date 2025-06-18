@@ -41,6 +41,7 @@ export interface WaterChemistry {
   copper?: number;
   iron?: number;
   orp?: number;
+  hasSaltCell?: boolean;
   notes?: string;
 }
 
@@ -64,16 +65,46 @@ export interface PoolDetails {
   deepEndDepth: number;
   shallowEndDepth: number;
   volume: number;
+  surfaceArea?: number;
   surfaceMaterial: 'plaster' | 'pebble' | 'tile' | 'vinyl' | 'fiberglass' | 'other';
   surfaceCondition: 'excellent' | 'good' | 'fair' | 'poor';
-  surfaceStains: boolean;
+  surfaceStains?: boolean;
+  stainTypes?: string;
   features: string[];
   environment: {
     nearbyTrees: boolean;
     treeType?: string;
     deckMaterial: string;
     fenceType: string;
+    grassOrDirt?: 'grass' | 'dirt' | 'both';
+    sprinklerSystem?: boolean;
   };
+  
+  // Add deck material to main interface
+  deckMaterial?: 'pavers' | 'stamped concrete' | 'tile' | 'natural stone' | 'concrete' | 'other';
+  
+  // New fields for sections
+  environmentAnalysis?: {
+    trees: string[];
+    sunExposure: string;
+    leafFall: string;
+    windExposure: string;
+    shadeCoverage: string;
+  };
+  deckAnalysis?: {
+    material: string;
+    condition: string;
+    cleanliness: string;
+    issues: string[];
+  };
+  deckCleanliness?: string;
+  
+  // Dynamic skimmer fields
+  skimmerCount?: number;
+  [key: `skimmer${number}Functioning`]: boolean;
+  [key: `skimmer${number}BasketCondition`]: string;
+  [key: `skimmer${number}LidCondition`]: string;
+  [key: `skimmer${number}LidModel`]: string;
 }
 
 export interface OnboardingData {

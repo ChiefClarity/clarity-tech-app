@@ -28,6 +28,8 @@ interface WaterChemistry {
   phosphates?: number;
   copper?: number;
   iron?: number;
+  orp?: number;
+  hasSaltCell?: boolean;
   notes?: string;
 }
 
@@ -35,6 +37,7 @@ interface PoolDetails {
   // Basic info
   poolType: 'inground' | 'aboveGround';
   shape: 'rectangle' | 'oval' | 'kidney' | 'freeform' | 'other';
+  type?: 'inground' | 'aboveGround'; // Support both field names
   
   // Dimensions - MUST support both manual and calculated
   length: number;
@@ -49,6 +52,8 @@ interface PoolDetails {
   // Surface
   surfaceMaterial: 'plaster' | 'pebble' | 'tile' | 'vinyl' | 'fiberglass' | 'other';
   surfaceCondition: 'excellent' | 'good' | 'fair' | 'poor';
+  surfaceStains?: boolean;
+  stainTypes?: string;
   
   // Features - checkbox array
   features: string[]; // ['waterfall', 'spa', 'lights', 'heater', 'autoCover', 'slide', 'divingBoard']
@@ -58,6 +63,19 @@ interface PoolDetails {
   treeTypes?: string;
   grassOrDirt: 'grass' | 'dirt' | 'both';
   sprinklerSystem: boolean;
+  environment?: {
+    nearbyTrees: boolean;
+    treeType?: string;
+    sprinklerSystem: boolean;
+  };
+  
+  // Skimmers and Deck
+  skimmerCount?: number;
+  deckMaterial?: string;
+  deckCleanliness?: string;
+  
+  // Dynamic fields for skimmers (allow any string key)
+  [key: string]: any;
 }
 
 interface EquipmentData {
@@ -164,7 +182,7 @@ interface OnboardingContextType {
   initializeSession: (customerId: string, customerName: string, offerId?: string) => Promise<void>;
   updateCustomerInfo: (data: CustomerInfo) => Promise<void>;
   updateWaterChemistry: (data: WaterChemistry) => Promise<void>;
-  updatePoolDetails: (data: PoolDetails) => Promise<void>;
+  updatePoolDetails: (data: Partial<PoolDetails>) => Promise<void>;
   updateEquipment: (data: Partial<EquipmentData>) => Promise<void>;
   addPhoto: (uri: string) => Promise<void>;
   recordVoiceNote: (uri: string, duration: number) => Promise<void>;
@@ -290,19 +308,25 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
   
   // Update pool details
-  const updatePoolDetails = async (data: PoolDetails) => {
+  const updatePoolDetails = async (data: Partial<PoolDetails>) => {
     if (!session) return;
     
     setSaving(true);
     try {
-      const updated = { ...session, poolDetails: data };
+      // Merge all fields including dynamic skimmer fields
+      const updated = { 
+        ...session, 
+        poolDetails: {
+          ...session.poolDetails,
+          ...data, // This will include all dynamic skimmer fields
+        } as PoolDetails
+      };
       setSession(updated);
       
       await AsyncStorage.setItem(
         `onboarding_session_${session.customerId}`,
         JSON.stringify(updated)
       );
-      
     } catch (err: any) {
       setError(err.message);
       throw err;

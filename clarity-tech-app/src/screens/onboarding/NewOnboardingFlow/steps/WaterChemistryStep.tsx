@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, ScrollView, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { debounce } from 'lodash';
 
 import { ModernInput } from '../../../../components/ui/ModernInput';
 import { AIPhotoAnalyzer } from '../../../../components/ui/AIPhotoAnalyzer';
@@ -78,7 +79,7 @@ export const WaterChemistryStep: React.FC = () => {
     },
   });
   
-  const values = watch();
+  const values = watch(['notes', 'hasSaltCell']); // Add explicit watch for notes
   
   // Load existing data when session updates
   useEffect(() => {
@@ -90,7 +91,12 @@ export const WaterChemistryStep: React.FC = () => {
   
   const onSubmit = async (data: WaterChemistryData) => {
     try {
-      await updateWaterChemistry(data);
+      // Ensure notes are included in the data
+      const submissionData = {
+        ...data,
+        notes: data.notes || '', // Ensure it's never undefined
+      };
+      await updateWaterChemistry(submissionData);
       // Navigation is handled by NavigationButtons component
     } catch (err) {
       webAlert.alert('Error', 'Failed to save water chemistry data');
@@ -122,6 +128,22 @@ export const WaterChemistryStep: React.FC = () => {
       console.error('Failed to save water chemistry:', error);
     }
   };
+  
+  // Handle notes change with debounce for auto-save
+  const handleNotesChange = useCallback(
+    debounce(async (value: string) => {
+      const allValues = getValues();
+      try {
+        await updateWaterChemistry({
+          ...allValues,
+          notes: value || '',
+        });
+      } catch (error) {
+        console.error('Failed to save notes:', error);
+      }
+    }, 500),
+    [getValues, updateWaterChemistry]
+  );
   
   // Get status color based on ideal range
   const getStatusColor = (field: typeof CHEMISTRY_FIELDS[0], value: number) => {
@@ -243,69 +265,111 @@ export const WaterChemistryStep: React.FC = () => {
         
         {/* Additional Fields */}
         <View style={styles.optionalFields}>
-            {CHEMISTRY_FIELDS.filter(f => f.optional).map((field) => (
-              <View key={field.key} style={styles.fieldContainer}>
-                <Controller
-                  control={control}
-                  name={field.key as keyof WaterChemistryData}
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <View>
-                      <ModernInput
-                        label={field.label}
-                        value={String(value || '')}
-                        onChangeText={onChange}
-                        onBlur={() => handleBlur(field.key, String(value))}
-                        error={errors[field.key as keyof WaterChemistryData]?.message}
-                        keyboardType="decimal-pad"
-                        suffix={field.unit}
-                      />
-                      <View style={styles.rangeInfo}>
-                        <Text style={styles.idealRange}>Ideal: {field.ideal}</Text>
-                        {value !== undefined && value !== null && (
-                          <View style={[
-                            styles.statusDot,
-                            { backgroundColor: getStatusColor(field, Number(value)) }
-                          ]} />
+            {CHEMISTRY_FIELDS.filter(f => f.optional).map((field) => {
+              // Special handling for salt field - render with checkbox
+              if (field.key === 'salt') {
+                return (
+                  <View key={field.key} style={styles.row}>
+                    <View style={styles.halfField}>
+                      <Controller
+                        control={control}
+                        name={field.key as keyof WaterChemistryData}
+                        render={({ field: { onChange, onBlur, value } }) => (
+                          <View>
+                            <ModernInput
+                              label={field.label}
+                              value={String(value || '')}
+                              onChangeText={onChange}
+                              onBlur={() => handleBlur(field.key, String(value))}
+                              error={errors[field.key as keyof WaterChemistryData]?.message}
+                              keyboardType="decimal-pad"
+                              suffix={field.unit}
+                            />
+                            <View style={styles.rangeInfo}>
+                              <Text style={styles.idealRange}>Ideal: {field.ideal}</Text>
+                              {value !== undefined && value !== null && value !== 0 && (
+                                <View style={[
+                                  styles.statusDot,
+                                  { backgroundColor: getStatusColor(field, Number(value)) }
+                                ]} />
+                              )}
+                            </View>
+                          </View>
                         )}
+                      />
+                    </View>
+                    <View style={styles.halfField}>
+                      {/* Salt Cell Checkbox */}
+                      <View style={styles.saltCellCheckbox}>
+                        <Controller
+                          control={control}
+                          name="hasSaltCell"
+                          render={({ field: { onChange, value } }) => (
+                            <TouchableOpacity
+                              style={styles.checkboxRow}
+                              onPress={() => {
+                                onChange(!value);
+                                handleBlur('hasSaltCell', !value);
+                              }}
+                            >
+                              <View style={[styles.checkbox, value && styles.checkboxChecked]}>
+                                {value && <Ionicons name="checkmark" size={16} color="white" />}
+                              </View>
+                              <Text style={styles.checkboxLabel}>Has Salt Cell</Text>
+                            </TouchableOpacity>
+                          )}
+                        />
                       </View>
                     </View>
-                  )}
-                />
-              </View>
-            ))}
-            
-            {/* Salt Cell Checkbox */}
-            <View style={styles.checkboxContainer}>
-              <Controller
-                control={control}
-                name="hasSaltCell"
-                render={({ field: { onChange, value } }) => (
-                  <TouchableOpacity
-                    style={styles.checkboxRow}
-                    onPress={() => {
-                      onChange(!value);
-                      handleFieldBlur('hasSaltCell', !value);
-                    }}
-                  >
-                    <View style={[styles.checkbox, value && styles.checkboxChecked]}>
-                      {value && <Ionicons name="checkmark" size={16} color="white" />}
-                    </View>
-                    <Text style={styles.checkboxLabel}>System has a functioning salt cell</Text>
-                  </TouchableOpacity>
-                )}
-              />
-            </View>
+                  </View>
+                );
+              }
+              
+              // Regular rendering for other fields
+              return (
+                <View key={field.key} style={styles.fieldContainer}>
+                  <Controller
+                    control={control}
+                    name={field.key as keyof WaterChemistryData}
+                    render={({ field: { onChange, onBlur, value } }) => (
+                      <View>
+                        <ModernInput
+                          label={field.label}
+                          value={String(value || '')}
+                          onChangeText={onChange}
+                          onBlur={() => handleBlur(field.key, String(value))}
+                          error={errors[field.key as keyof WaterChemistryData]?.message}
+                          keyboardType="decimal-pad"
+                          suffix={field.unit}
+                        />
+                        <View style={styles.rangeInfo}>
+                          <Text style={styles.idealRange}>Ideal: {field.ideal}</Text>
+                          {value !== undefined && value !== null && (field.key !== 'orp' || (field.key === 'orp' && value !== 0)) && (
+                            <View style={[
+                              styles.statusDot,
+                              { backgroundColor: getStatusColor(field, Number(value)) }
+                            ]} />
+                          )}
+                        </View>
+                      </View>
+                    )}
+                  />
+                </View>
+              );
+            })}
             
             {/* Notes Field */}
             <Controller
               control={control}
               name="notes"
-              render={({ field: { onChange, onBlur, value } }) => (
+              render={({ field: { onChange, value } }) => (
                 <ModernInput
                   label="Additional Notes"
                   value={value || ''}
-                  onChangeText={onChange}
-                  onBlur={() => handleFieldBlur('notes', value)}
+                  onChangeText={(text) => {
+                    onChange(text);
+                    handleNotesChange(text);
+                  }}
                   multiline
                   numberOfLines={3}
                 />
@@ -423,7 +487,7 @@ const styles = StyleSheet.create({
   analysisResultText: {
     marginLeft: theme.spacing.sm,
     fontSize: theme.typography.small.fontSize,
-    color: theme.colors.text,
+    color: theme.colors.darkBlue,
     flex: 1,
   },
   checkboxContainer: {
@@ -450,7 +514,19 @@ const styles = StyleSheet.create({
   },
   checkboxLabel: {
     fontSize: theme.typography.body.fontSize,
-    color: theme.colors.text,
+    color: theme.colors.darkBlue,
     flex: 1,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  halfField: {
+    flex: 1,
+  },
+  saltCellCheckbox: {
+    paddingTop: 28, // Align with input field
+    paddingHorizontal: theme.spacing.xs,
   },
 });

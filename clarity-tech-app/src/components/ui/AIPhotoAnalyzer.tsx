@@ -24,6 +24,7 @@ export const AIPhotoAnalyzer: React.FC<AIPhotoAnalyzerProps> = ({
 }) => {
   const [photos, setPhotos] = useState<string[]>(initialPhotos);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handlePhotoCapture = async () => {
     if (photos.length >= maxPhotos) {
@@ -31,6 +32,8 @@ export const AIPhotoAnalyzer: React.FC<AIPhotoAnalyzerProps> = ({
       return;
     }
 
+    setError(null); // Clear any previous errors
+    
     try {
       const result = await launchCamera({ mediaTypes: 'photo' });
       
@@ -44,15 +47,21 @@ export const AIPhotoAnalyzer: React.FC<AIPhotoAnalyzerProps> = ({
           setIsAnalyzing(true);
           try {
             await onAnalyze(newPhotos);
+            setError(null);
           } catch (error) {
             console.error('AI analysis failed:', error);
+            setError('Failed to analyze photo. Please try again.');
           } finally {
             setIsAnalyzing(false);
           }
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to take photo:', error);
+      setError(error.message || 'Failed to capture photo. Please try again.');
+      
+      // Auto-clear error after 5 seconds
+      setTimeout(() => setError(null), 5000);
     }
   };
 
@@ -83,6 +92,14 @@ export const AIPhotoAnalyzer: React.FC<AIPhotoAnalyzerProps> = ({
       
       {description && (
         <Text style={styles.description}>{description}</Text>
+      )}
+
+      {/* Error message */}
+      {error && (
+        <View style={styles.errorBanner}>
+          <Ionicons name="alert-circle" size={20} color={theme.colors.error} />
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
       )}
 
       {/* Photo display grid for multiple photos */}
@@ -335,6 +352,20 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: theme.typography.body.fontSize,
     fontWeight: '600',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.error + '20',
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing.md,
+  },
+  errorText: {
+    marginLeft: theme.spacing.sm,
+    fontSize: theme.typography.small.fontSize,
+    color: theme.colors.error,
+    flex: 1,
   },
 });
 

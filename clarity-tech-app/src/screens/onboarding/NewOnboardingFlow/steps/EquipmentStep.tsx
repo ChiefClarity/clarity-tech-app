@@ -71,7 +71,7 @@ export const EquipmentStep: React.FC = () => {
   const scrollViewRef = useRef<ScrollView>(null);
   const sectionRefs = useRef<{ [key: string]: View | null }>({});
   const { session, updateEquipment, addPhoto, nextStep } = useOnboarding();
-  const [expandedSection, setExpandedSection] = useState<string>('pump');
+  const [expandedSections, setExpandedSections] = useState<string[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<{
@@ -182,24 +182,16 @@ export const EquipmentStep: React.FC = () => {
   };
   
   const toggleSection = (sectionId: string) => {
-    const isExpanding = expandedSection !== sectionId;
-    setExpandedSection(isExpanding ? sectionId : '');
-    
-    // Auto-scroll to section when expanding
-    if (isExpanding && sectionRefs.current[sectionId]) {
-      setTimeout(() => {
-        sectionRefs.current[sectionId]?.measureLayout(
-          scrollViewRef.current as any,
-          (x, y) => {
-            scrollViewRef.current?.scrollTo({
-              y: y - 100, // Offset for header
-              animated: true,
-            });
-          },
-          () => console.error('Failed to measure layout')
-        );
-      }, 100); // Small delay for animation
-    }
+    setExpandedSections(prev => {
+      if (prev.includes(sectionId)) {
+        // Closing a section - just remove it
+        return prev.filter(id => id !== sectionId);
+      } else {
+        // Opening a section - close others and open this one
+        // DO NOT auto-scroll - let user control their position
+        return [sectionId];
+      }
+    });
   };
   
   const handleNext = () => {
@@ -295,9 +287,10 @@ export const EquipmentStep: React.FC = () => {
       {EQUIPMENT_SECTIONS.map((section, index) => (
         <View 
           key={section.id}
-          ref={ref => sectionRefs.current[section.id] = ref}>
+          ref={ref => sectionRefs.current[section.id] = ref}
+          style={styles.section}>
           <TouchableOpacity 
-            style={[styles.sectionHeader, expandedSection === section.id && styles.sectionHeaderActive]}
+            style={styles.sectionHeader}
             onPress={() => toggleSection(section.id)}
           >
             <View style={styles.sectionTitle}>
@@ -305,13 +298,13 @@ export const EquipmentStep: React.FC = () => {
               <Text style={styles.sectionTitleText}>{section.title}</Text>
             </View>
             <Ionicons 
-              name={expandedSection === section.id ? 'chevron-up' : 'chevron-down'} 
+              name={expandedSections.includes(section.id) ? 'chevron-up' : 'chevron-down'} 
               size={24} 
               color={theme.colors.gray} 
             />
           </TouchableOpacity>
           
-          {expandedSection === section.id && (
+          {expandedSections.includes(section.id) && (
             <View style={styles.sectionContent}>
               {renderSectionContent(section.id, equipmentData, handleFieldChange)}
             </View>
@@ -528,23 +521,41 @@ const FilterSection: React.FC<{ data: any; onChange: (field: string, value: any)
     </View>
 
     {data.filterType === 'cartridge' && (
-      <View style={styles.subSection}>
-        <Text style={styles.subSectionTitle}>Cartridge Details</Text>
+      <>
         <ModernInput
           label="Cartridge Model"
           value={data.cartridgeModel || ''}
           onChangeText={(text) => onChange('cartridgeModel', text)}
         />
-        <TouchableOpacity
-          style={styles.checkboxRow}
-          onPress={() => onChange('cartridgeNeedsReplacement', !data.cartridgeNeedsReplacement)}
-        >
-          <View style={[styles.checkbox, data.cartridgeNeedsReplacement && styles.checkboxChecked]}>
-            {data.cartridgeNeedsReplacement && <Ionicons name="checkmark" size={16} color="white" />}
-          </View>
-          <Text style={styles.checkboxLabel}>Cartridge needs replacement</Text>
-        </TouchableOpacity>
-      </View>
+        
+        <Text style={styles.fieldLabel}>Cartridge Condition</Text>
+        <View style={styles.conditionGrid}>
+          {CONDITION_OPTIONS.map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.conditionOption,
+                data.cartridgeCondition === option.value && { 
+                  backgroundColor: option.color + '20',
+                  borderColor: option.color 
+                },
+              ]}
+              onPress={() => onChange('cartridgeCondition', option.value)}
+            >
+              <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
+              <Text style={[
+                styles.conditionLabel,
+                data.cartridgeCondition === option.value && { 
+                  color: option.color, 
+                  fontWeight: '600' 
+                }
+              ]}>
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </>
     )}
 
     <ModernInput
@@ -946,6 +957,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.lg,
   },
   header: {
     padding: theme.spacing.xl,
@@ -1011,7 +1023,7 @@ const styles = StyleSheet.create({
   },
   analysisResultText: {
     fontSize: theme.typography.body.fontSize,
-    color: theme.colors.text,
+    color: theme.colors.darkBlue,
     marginLeft: theme.spacing.sm,
     flex: 1,
   },
@@ -1021,18 +1033,24 @@ const styles = StyleSheet.create({
     marginHorizontal: theme.spacing.lg,
     marginVertical: theme.spacing.lg,
   },
+  section: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.xl,
+    marginBottom: theme.spacing.lg,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(210, 226, 225, 1)',
+  },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
+    padding: theme.spacing.lg,
     backgroundColor: theme.colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  sectionHeaderActive: {
-    backgroundColor: theme.colors.seaFoam + '20',
   },
   sectionTitle: {
     flexDirection: 'row',
@@ -1040,16 +1058,14 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   sectionTitleText: {
-    fontSize: theme.typography.body.fontSize,
+    fontSize: theme.typography.h3.fontSize,
     fontWeight: '600',
     color: theme.colors.darkBlue,
+    marginLeft: theme.spacing.md,
   },
   sectionContent: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.lg,
-    backgroundColor: theme.colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    padding: theme.spacing.lg,
+    paddingTop: 0,
   },
   fieldLabel: {
     fontSize: theme.typography.body.fontSize,
