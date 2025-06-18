@@ -71,7 +71,15 @@ export const EquipmentStep: React.FC = () => {
   const scrollViewRef = useRef<ScrollView>(null);
   const sectionRefs = useRef<{ [key: string]: View | null }>({});
   const { session, updateEquipment, addPhoto, nextStep } = useOnboarding();
-  const [expandedSections, setExpandedSections] = useState<string[]>([]);
+  const [expandedSections, setExpandedSections] = useState<string[]>([
+    'pump',
+    'filter',
+    'sanitizer',
+    'heater',
+    'timer',
+    'valves',
+    'equipment-pad'
+  ]);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<{
@@ -184,12 +192,9 @@ export const EquipmentStep: React.FC = () => {
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => {
       if (prev.includes(sectionId)) {
-        // Closing a section - just remove it
         return prev.filter(id => id !== sectionId);
       } else {
-        // Opening a section - close others and open this one
-        // DO NOT auto-scroll - let user control their position
-        return [sectionId];
+        return [...prev, sectionId];
       }
     });
   };
