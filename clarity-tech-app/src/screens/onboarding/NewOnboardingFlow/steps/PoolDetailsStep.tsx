@@ -180,131 +180,653 @@ const UncontrolledInput = ({
   );
 };
 
-// Memoized skimmer mini-section component with proper state management
-const SkimmerMiniSection = memo(({ 
-  index, 
+// Section Components - moved outside main component to prevent circular dependencies
+const SizeShapeSection = memo(({ 
+  control, 
+  errors, 
+  setValue, 
+  poolType, 
+  shape, 
   handleFieldBlur,
-  control,
-  setValue
-}: { 
-  index: number; 
-  handleFieldBlur: (field: string, value: any) => void;
-  control: any;
-  setValue: any;
-}) => {
-  const basketCondition = useWatch({
-    control,
-    name: `skimmer${index + 1}BasketCondition`
-  });
-  
-  const lidCondition = useWatch({
-    control,
-    name: `skimmer${index + 1}LidCondition`
-  });
-  
-  return (
-    <View style={styles.skimmerMiniSection}>
-      <Text style={styles.miniSectionTitle}>Skimmer #{index + 1}</Text>
+  isAnalyzingSatellite,
+  satelliteAnalyzed,
+  satelliteAnalysisResult,
+  handleSatelliteAnalysis,
+  selectedFeatures,
+  toggleFeature
+}: any) => (
+  <View>
+    {/* AI Satellite Analyzer */}
+    <View style={styles.aiAnalyzerSection}>
+      <View style={styles.analysisHeader}>
+        <Ionicons name="globe" size={24} color={theme.colors.aiPink} />
+        <Text style={styles.analysisTitle}>AI Satellite Analysis</Text>
+      </View>
+      <Text style={styles.analysisDescription}>
+        Automatically detect pool dimensions and shape from satellite imagery
+      </Text>
       
-      <Controller
-        control={control}
-        name={`skimmer${index + 1}Functioning` as any}
-        render={({ field: { onChange, value } }) => (
-          <TouchableOpacity
-            style={styles.checkboxRow}
-            onPress={() => onChange(!value)}
-          >
-            <View style={[styles.checkbox, value && styles.checkboxChecked]}>
-              {value && <Ionicons name="checkmark" size={16} color="white" />}
-            </View>
-            <Text style={styles.checkboxLabel}>Functioning properly</Text>
-          </TouchableOpacity>
-        )}
+      <TouchableOpacity
+        style={[styles.analysisButton, satelliteAnalyzed && styles.analysisButtonCompleted]}
+        onPress={handleSatelliteAnalysis}
+        disabled={isAnalyzingSatellite}
+      >
+        <LinearGradient
+          colors={satelliteAnalyzed ? [theme.colors.success, theme.colors.success] : [theme.colors.aiPink, theme.colors.aiPink]}
+          style={styles.analysisButtonGradient}
+        >
+          {isAnalyzingSatellite ? (
+            <Ionicons name="sync" size={20} color="white" />
+          ) : satelliteAnalyzed ? (
+            <Ionicons name="checkmark-circle" size={20} color="white" />
+          ) : (
+            <Ionicons name="globe" size={20} color="white" />
+          )}
+          <Text style={styles.analysisButtonText}>
+            {isAnalyzingSatellite ? 'Analyzing...' : satelliteAnalyzed ? 'Analysis Complete' : 'Analyze Pool'}
+          </Text>
+        </LinearGradient>
+      </TouchableOpacity>
+      
+      {satelliteAnalysisResult && (
+        <View style={[
+          styles.analysisResultBanner,
+          satelliteAnalysisResult.success ? styles.successBanner : styles.errorBanner
+        ]}>
+          <Ionicons 
+            name={satelliteAnalysisResult.success ? "checkmark-circle" : "close-circle"} 
+            size={20} 
+            color={satelliteAnalysisResult.success ? theme.colors.success : theme.colors.error} 
+          />
+          <Text style={styles.analysisResultText}>
+            {satelliteAnalysisResult.message}
+            {satelliteAnalysisResult.confidence && ` - ${satelliteAnalysisResult.confidence}% confidence`}
+          </Text>
+        </View>
+      )}
+    </View>
+    
+    {/* Pool Type */}
+    <Text style={styles.fieldLabel}>Pool Type</Text>
+    <View style={styles.typeButtons}>
+      <TouchableOpacity
+        style={[styles.typeButton, poolType === 'inground' && styles.typeButtonActive]}
+        onPress={() => {
+          setValue('poolType', 'inground');
+          handleFieldBlur('poolType', 'inground');
+        }}
+      >
+        <Text style={[styles.typeButtonText, poolType === 'inground' && styles.typeButtonTextActive]}>
+          In-Ground
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.typeButton, poolType === 'aboveGround' && styles.typeButtonActive]}
+        onPress={() => {
+          setValue('poolType', 'aboveGround');
+          handleFieldBlur('poolType', 'aboveGround');
+        }}
+      >
+        <Text style={[styles.typeButtonText, poolType === 'aboveGround' && styles.typeButtonTextActive]}>
+          Above Ground
+        </Text>
+      </TouchableOpacity>
+    </View>
+    
+    {/* Pool Shape */}
+    <Text style={styles.fieldLabel}>Pool Shape</Text>
+    <View style={styles.shapeGrid}>
+      {POOL_SHAPES.map((shapeOption) => (
+        <TouchableOpacity
+          key={shapeOption.value}
+          style={[
+            styles.shapeButton,
+            shape === shapeOption.value && styles.shapeButtonActive
+          ]}
+          onPress={() => {
+            setValue('shape', shapeOption.value);
+            handleFieldBlur('shape', shapeOption.value);
+          }}
+        >
+          <Ionicons
+            name={shapeOption.icon as any}
+            size={24}
+            color={shape === shapeOption.value ? theme.colors.white : theme.colors.gray}
+            style={styles.shapeIcon}
+          />
+          <Text style={[
+            styles.shapeButtonText,
+            shape === shapeOption.value && styles.shapeButtonTextActive
+          ]}>
+            {shapeOption.label}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+    
+    {/* Dimensions */}
+    <Text style={styles.fieldLabel}>Dimensions</Text>
+    <View style={styles.row}>
+      <View style={styles.thirdField}>
+        <Controller
+          control={control}
+          name="length"
+          render={({ field: { onChange, value } }) => (
+            <UncontrolledInput
+              label="Length"
+              initialValue={value ? String(value) : ''}
+              onBlurValue={(text: string) => {
+                const num = parseFloat(text);
+                onChange(isNaN(num) ? undefined : num);
+                handleFieldBlur('length', num);
+              }}
+              error={errors.length?.message}
+              keyboardType="numeric"
+            />
+          )}
+        />
+      </View>
+      <View style={styles.thirdField}>
+        <Controller
+          control={control}
+          name="width"
+          render={({ field: { onChange, value } }) => (
+            <UncontrolledInput
+              label="Width"
+              initialValue={value ? String(value) : ''}
+              onBlurValue={(text: string) => {
+                const num = parseFloat(text);
+                onChange(isNaN(num) ? undefined : num);
+                handleFieldBlur('width', num);
+              }}
+              error={errors.width?.message}
+              keyboardType="numeric"
+            />
+          )}
+        />
+      </View>
+    </View>
+    
+    {/* Depth Fields */}
+    <Text style={styles.fieldLabel}>Pool Depths</Text>
+    <View style={styles.row}>
+      <View style={styles.halfField}>
+        <Controller
+          control={control}
+          name="shallowEndDepth"
+          render={({ field: { onChange, value } }) => (
+            <UncontrolledInput
+              label="Shallow End"
+              initialValue={value ? String(value) : ''}
+              onBlurValue={(text: string) => {
+                const num = parseFloat(text);
+                onChange(isNaN(num) ? undefined : num);
+                handleFieldBlur('shallowEndDepth', num);
+              }}
+              keyboardType="numeric"
+            />
+          )}
+        />
+      </View>
+      <View style={styles.halfField}>
+        <Controller
+          control={control}
+          name="deepEndDepth"
+          render={({ field: { onChange, value } }) => (
+            <UncontrolledInput
+              label="Deep End"
+              initialValue={value ? String(value) : ''}
+              onBlurValue={(text: string) => {
+                const num = parseFloat(text);
+                onChange(isNaN(num) ? undefined : num);
+                handleFieldBlur('deepEndDepth', num);
+              }}
+              keyboardType="numeric"
+            />
+          )}
+        />
+      </View>
+    </View>
+    
+    {/* Pool Features */}
+    <Text style={styles.fieldLabel}>Pool Features</Text>
+    <View style={styles.featuresGrid}>
+      {POOL_FEATURES.map((feature) => (
+        <TouchableOpacity
+          key={feature.id}
+          style={[
+            styles.featureButton,
+            selectedFeatures?.includes(feature.id) && styles.featureButtonActive
+          ]}
+          onPress={() => toggleFeature(feature.id)}
+        >
+          <Ionicons 
+            name={feature.icon as any} 
+            size={24} 
+            color={selectedFeatures?.includes(feature.id) ? theme.colors.white : theme.colors.blueGreen} 
+          />
+          <Text style={[
+            styles.featureLabel,
+            selectedFeatures?.includes(feature.id) && styles.featureButtonTextActive
+          ]}>
+            {feature.label}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  </View>
+));
+
+const SurfaceSection = memo(({ 
+  control, 
+  errors, 
+  setValue, 
+  surfaceMaterial, 
+  surfaceCondition,
+  handleFieldBlur,
+  surfacePhotos,
+  setSurfacePhotos
+}: any) => (
+  <View>
+    {/* AI Surface Analyzer */}
+    <View style={styles.aiAnalyzerSection}>
+      <Text style={styles.analyzerTitle}>AI Surface Analysis</Text>
+      <Text style={styles.analyzerDescription}>
+        Take photos of pool surface for AI to identify material type and condition
+      </Text>
+      <AIPhotoAnalyzer
+        title="Surface Photos"
+        description="Capture pool surface from multiple angles"
+        maxPhotos={6}
+        onAnalyze={async (photos) => {
+          setSurfacePhotos(photos);
+          // Mock AI surface analysis
+          setValue('surfaceMaterial', 'pebble');
+          setValue('surfaceCondition', 'good');
+          handleFieldBlur('surfaceMaterial', 'pebble');
+        }}
+        allowBatchAnalysis={true}
       />
-      
-      <Text style={styles.fieldLabel}>Basket Condition</Text>
-      <View style={styles.conditionGrid}>
-        {CONDITION_OPTIONS.map((option) => (
-          <TouchableOpacity
-            key={option.value}
-            style={[
-              styles.conditionOption,
-              basketCondition === option.value && { 
-                backgroundColor: option.color + '20',
-                borderColor: option.color 
-              },
-            ]}
-            onPress={() => {
-              const fieldName = `skimmer${index + 1}BasketCondition`;
-              setValue(fieldName, option.value);
-              handleFieldBlur(fieldName, option.value);
-            }}
-          >
-            <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
-            <Text style={[
-              styles.conditionLabel,
-              basketCondition === option.value && { 
-                color: option.color, 
-                fontWeight: '600' 
-              }
-            ]}>
-              {option.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      <Text style={styles.fieldLabel}>Lid Condition</Text>
-      <View style={styles.conditionGrid}>
-        {CONDITION_OPTIONS.map((option) => (
-          <TouchableOpacity
-            key={option.value}
-            style={[
-              styles.conditionOption,
-              lidCondition === option.value && { 
-                backgroundColor: option.color + '20',
-                borderColor: option.color 
-              },
-            ]}
-            onPress={() => {
-              const fieldName = `skimmer${index + 1}LidCondition`;
-              setValue(fieldName, option.value);
-              handleFieldBlur(fieldName, option.value);
-            }}
-          >
-            <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
-            <Text style={[
-              styles.conditionLabel,
-              lidCondition === option.value && { 
-                color: option.color, 
-                fontWeight: '600' 
-              }
-            ]}>
-              {option.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+    </View>
+    
+    {/* Surface Material */}
+    <Text style={styles.fieldLabel}>Surface Material</Text>
+    <View style={styles.optionsGrid}>
+      {SURFACE_MATERIALS.map((type) => (
+        <TouchableOpacity
+          key={type.value}
+          style={[
+            styles.optionButton,
+            surfaceMaterial === type.value && styles.optionButtonActive
+          ]}
+          onPress={() => {
+            setValue('surfaceMaterial', type.value as any);
+            handleFieldBlur('surfaceMaterial', type.value);
+          }}
+        >
+          <Text style={[
+            styles.optionText,
+            surfaceMaterial === type.value && styles.optionTextActive
+          ]}>
+            {type.label}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+    
+    {/* Surface Condition */}
+    <Text style={styles.fieldLabel}>Surface Condition</Text>
+    <View style={styles.conditionGrid}>
+      {CONDITION_OPTIONS.map((option) => (
+        <TouchableOpacity
+          key={option.value}
+          style={[
+            styles.conditionOption,
+            surfaceCondition === option.value && { 
+              backgroundColor: option.color + '20',
+              borderColor: option.color 
+            },
+          ]}
+          onPress={() => {
+            setValue('surfaceCondition', option.value as any);
+            handleFieldBlur('surfaceCondition', option.value);
+          }}
+        >
+          <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
+          <Text style={[
+            styles.conditionLabel,
+            surfaceCondition === option.value && { 
+              color: option.color, 
+              fontWeight: '600' 
+            }
+          ]}>
+            {option.label}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+    
+    {/* Surface Stains */}
+    <Controller
+      control={control}
+      name="surfaceStains"
+      render={({ field: { onChange, value } }) => (
+        <TouchableOpacity
+          style={styles.checkboxRow}
+          onPress={() => {
+            onChange(!value);
+            handleFieldBlur('surfaceStains', !value);
+          }}
+        >
+          <View style={[styles.checkbox, value && styles.checkboxChecked]}>
+            {value && <Ionicons name="checkmark" size={16} color="white" />}
+          </View>
+          <Text style={styles.checkboxLabel}>Surface has visible stains</Text>
+        </TouchableOpacity>
+      )}
+    />
+    
+    {control._formValues?.surfaceStains && (
       <Controller
         control={control}
-        name={`skimmer${index + 1}LidModel` as any}
+        name="stainTypes"
         render={({ field: { onChange, value } }) => (
           <UncontrolledInput
-            label="Lid Model #"
+            label="Describe stains"
             initialValue={value || ''}
             onBlurValue={(text: string) => {
               onChange(text);
-              handleFieldBlur(`skimmer${index + 1}LidModel`, text);
+              handleFieldBlur('stainTypes', text);
             }}
-            autoCorrect={false}
-            autoCapitalize="none"
-            returnKeyType="done"
-            blurOnSubmit={true}
+            multiline
           />
         )}
       />
+    )}
+  </View>
+));
+
+const EnvironmentSection = memo(({ 
+  control, 
+  errors, 
+  setValue, 
+  handleFieldBlur,
+  environmentPhotos,
+  setEnvironmentPhotos
+}: any) => (
+  <View>
+    {/* AI Environment Analyzer */}
+    <View style={styles.aiAnalyzerSection}>
+      <Text style={styles.analyzerTitle}>AI Environment Analysis</Text>
+      <Text style={styles.analyzerDescription}>
+        Capture photos of the pool surroundings for environmental assessment
+      </Text>
+      <AIPhotoAnalyzer
+        title="Environment Photos"
+        description="Include trees, landscaping, and surrounding areas"
+        maxPhotos={8}
+        onAnalyze={async (photos) => {
+          setEnvironmentPhotos(photos);
+          // Mock AI environment analysis
+          setValue('nearbyTrees', true);
+          setValue('grassOrDirt', 'both');
+          handleFieldBlur('nearbyTrees', true);
+        }}
+        allowBatchAnalysis={true}
+      />
     </View>
-  );
-});
+    
+    {/* Nearby Trees */}
+    <Controller
+      control={control}
+      name="nearbyTrees"
+      render={({ field: { onChange, value } }) => (
+        <TouchableOpacity
+          style={styles.checkboxRow}
+          onPress={() => {
+            onChange(!value);
+            handleFieldBlur('nearbyTrees', !value);
+          }}
+        >
+          <View style={[styles.checkbox, value && styles.checkboxChecked]}>
+            {value && <Ionicons name="checkmark" size={16} color="white" />}
+          </View>
+          <Text style={styles.checkboxLabel}>Trees near pool</Text>
+        </TouchableOpacity>
+      )}
+    />
+    
+    {control._formValues?.nearbyTrees && (
+      <Controller
+        control={control}
+        name="treeTypes"
+        render={({ field: { onChange, value } }) => (
+          <UncontrolledInput
+            label="Types of trees"
+            initialValue={value || ''}
+            onBlurValue={(text: string) => {
+              onChange(text);
+              handleFieldBlur('treeTypes', text);
+            }}
+            placeholder="e.g., Oak, Pine, Palm"
+          />
+        )}
+      />
+    )}
+    
+    {/* Grass or Dirt */}
+    <Text style={styles.fieldLabel}>Surrounding Ground</Text>
+    <Controller
+      control={control}
+      name="grassOrDirt"
+      render={({ field: { onChange, value } }) => (
+        <View style={styles.optionsRow}>
+          {['grass', 'dirt', 'both'].map((option) => (
+            <TouchableOpacity
+              key={option}
+              style={[
+                styles.optionButton,
+                value === option && styles.optionButtonActive
+              ]}
+              onPress={() => {
+                onChange(option);
+                handleFieldBlur('grassOrDirt', option);
+              }}
+            >
+              <Text style={[
+                styles.optionText,
+                value === option && styles.optionTextActive
+              ]}>
+                {option.charAt(0).toUpperCase() + option.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    />
+    
+    {/* Sprinkler System */}
+    <Controller
+      control={control}
+      name="sprinklerSystem"
+      render={({ field: { onChange, value } }) => (
+        <TouchableOpacity
+          style={styles.checkboxRow}
+          onPress={() => {
+            onChange(!value);
+            handleFieldBlur('sprinklerSystem', !value);
+          }}
+        >
+          <View style={[styles.checkbox, value && styles.checkboxChecked]}>
+            {value && <Ionicons name="checkmark" size={16} color="white" />}
+          </View>
+          <Text style={styles.checkboxLabel}>Sprinkler system present</Text>
+        </TouchableOpacity>
+      )}
+    />
+  </View>
+));
+
+const SkimmersSection = memo(({ 
+  control, 
+  errors, 
+  setValue, 
+  skimmerCount, 
+  setSkimmerCount,
+  handleFieldBlur
+}: any) => (
+  <View>
+    {/* AI Skimmer Detection */}
+    <View style={styles.aiAnalyzerSection}>
+      <Text style={styles.analyzerTitle}>AI Skimmer Detection</Text>
+      <Text style={styles.analyzerDescription}>
+        {`Take clear photos of each skimmer basket and lid separately. AI will count skimmers and assess their condition. Include photos from directly above each skimmer.`}
+      </Text>
+      <AIPhotoAnalyzer
+        title="Skimmer Photos"
+        description="Capture each skimmer clearly"
+        maxPhotos={12}
+        onAnalyze={async (photos) => {
+          // Mock AI skimmer detection
+          const detectedCount = Math.floor(Math.random() * 3) + 1;
+          setSkimmerCount(detectedCount);
+          setValue('skimmerCount', detectedCount);
+          handleFieldBlur('skimmerCount', detectedCount);
+        }}
+        allowBatchAnalysis={true}
+      />
+    </View>
+    
+    {/* Skimmer Count */}
+    <Text style={styles.fieldLabel}>Number of Skimmers</Text>
+    <View style={styles.counterRow}>
+      <TouchableOpacity
+        style={styles.counterButton}
+        onPress={() => {
+          const newCount = Math.max(0, skimmerCount - 1);
+          setSkimmerCount(newCount);
+          setValue('skimmerCount', newCount);
+          handleFieldBlur('skimmerCount', newCount);
+        }}
+      >
+        <Ionicons name="remove" size={24} color={theme.colors.darkBlue} />
+      </TouchableOpacity>
+      <View style={styles.counterDisplay}>
+        <Text style={styles.counterText}>{skimmerCount}</Text>
+      </View>
+      <TouchableOpacity
+        style={styles.counterButton}
+        onPress={() => {
+          const newCount = skimmerCount + 1;
+          setSkimmerCount(newCount);
+          setValue('skimmerCount', newCount);
+          handleFieldBlur('skimmerCount', newCount);
+        }}
+      >
+        <Ionicons name="add" size={24} color={theme.colors.darkBlue} />
+      </TouchableOpacity>
+    </View>
+    
+    {/* Dynamic Skimmer Mini-Sections */}
+    {Array.from({ length: skimmerCount }).map((_, index) => (
+      <SkimmerMiniSection 
+        key={index} 
+        index={index} 
+        handleFieldBlur={handleFieldBlur} 
+        control={control} 
+        setValue={setValue} 
+      />
+    ))}
+  </View>
+));
+
+const DeckSection = memo(({ 
+  control, 
+  setValue, 
+  deckMaterial, 
+  deckCleanliness,
+  handleFieldBlur,
+  deckPhotos,
+  setDeckPhotos
+}: any) => (
+  <View>
+    {/* AI Deck Analyzer */}
+    <View style={styles.aiAnalyzerSection}>
+      <Text style={styles.analyzerTitle}>AI Deck Analysis</Text>
+      <Text style={styles.analyzerDescription}>
+        AI will identify deck surface material and assess condition
+      </Text>
+      <AIPhotoAnalyzer
+        title="Deck Photos"
+        description="Capture deck areas around pool"
+        maxPhotos={6}
+        onAnalyze={async (photos) => {
+          setDeckPhotos(photos);
+          // Mock AI deck analysis
+          const materials = ['pavers', 'stamped concrete', 'tile', 'natural stone', 'concrete'];
+          const detectedMaterial = materials[Math.floor(Math.random() * materials.length)];
+          setValue('deckMaterial', detectedMaterial);
+          setValue('deckCleanliness', 'clean');
+          handleFieldBlur('deckMaterial', detectedMaterial);
+        }}
+        allowBatchAnalysis={true}
+      />
+    </View>
+    
+    {/* Deck Material */}
+    <Text style={styles.fieldLabel}>Deck Surface Material</Text>
+    <View style={styles.optionsGrid}>
+      {['pavers', 'stamped concrete', 'tile', 'natural stone', 'concrete', 'other'].map((material) => (
+        <TouchableOpacity
+          key={material}
+          style={[
+            styles.optionButton,
+            deckMaterial === material && styles.optionButtonActive
+          ]}
+          onPress={() => {
+            setValue('deckMaterial', material);
+            handleFieldBlur('deckMaterial', material);
+          }}
+        >
+          <Text style={[
+            styles.optionText,
+            deckMaterial === material && styles.optionTextActive
+          ]}>
+            {material.split(' ').map(word => 
+              word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' ')}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+    
+    {/* Deck Cleanliness */}
+    <Text style={styles.fieldLabel}>Deck Cleanliness</Text>
+    <View style={styles.optionsGrid}>
+      {['pristine', 'clean', 'dirty', 'filthy'].map((level) => (
+        <TouchableOpacity
+          key={level}
+          style={[
+            styles.optionButton,
+            deckCleanliness === level && styles.optionButtonActive
+          ]}
+          onPress={() => {
+            setValue('deckCleanliness', level);
+            handleFieldBlur('deckCleanliness', level);
+          }}
+        >
+          <Text style={[
+            styles.optionText,
+            deckCleanliness === level && styles.optionTextActive
+          ]}>
+            {level.charAt(0).toUpperCase() + level.slice(1)}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  </View>
+));
+
 
 
 export const PoolDetailsStep: React.FC = () => {
@@ -498,6 +1020,131 @@ export const PoolDetailsStep: React.FC = () => {
     };
   }, []);
 
+  // Memoized skimmer mini-section component with proper state management
+  const SkimmerMiniSection = memo(({ 
+    index, 
+    handleFieldBlur,
+    control,
+    setValue
+  }: { 
+    index: number; 
+    handleFieldBlur: (field: string, value: any) => void;
+    control: any;
+    setValue: any;
+  }) => {
+    const basketCondition = useWatch({
+      control,
+      name: `skimmer${index + 1}BasketCondition`
+    });
+    
+    const lidCondition = useWatch({
+      control,
+      name: `skimmer${index + 1}LidCondition`
+    });
+    
+    return (
+      <View style={styles.skimmerMiniSection}>
+        <Text style={styles.miniSectionTitle}>Skimmer #{index + 1}</Text>
+        
+        <Controller
+          control={control}
+          name={`skimmer${index + 1}Functioning` as any}
+          render={({ field: { onChange, value } }) => (
+            <TouchableOpacity
+              style={styles.checkboxRow}
+              onPress={() => onChange(!value)}
+            >
+              <View style={[styles.checkbox, value && styles.checkboxChecked]}>
+                {value && <Ionicons name="checkmark" size={16} color="white" />}
+              </View>
+              <Text style={styles.checkboxLabel}>Functioning properly</Text>
+            </TouchableOpacity>
+          )}
+        />
+        
+        <Text style={styles.fieldLabel}>Basket Condition</Text>
+        <View style={styles.conditionGrid}>
+          {CONDITION_OPTIONS.map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.conditionOption,
+                basketCondition === option.value && { 
+                  backgroundColor: option.color + '20',
+                  borderColor: option.color 
+                },
+              ]}
+              onPress={() => {
+                const fieldName = `skimmer${index + 1}BasketCondition`;
+                setValue(fieldName, option.value);
+                handleFieldBlur(fieldName, option.value);
+              }}
+            >
+              <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
+              <Text style={[
+                styles.conditionLabel,
+                basketCondition === option.value && { 
+                  color: option.color, 
+                  fontWeight: '600' 
+                }
+              ]}>
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <Text style={styles.fieldLabel}>Lid Condition</Text>
+        <View style={styles.conditionGrid}>
+          {CONDITION_OPTIONS.map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.conditionOption,
+                lidCondition === option.value && { 
+                  backgroundColor: option.color + '20',
+                  borderColor: option.color 
+                },
+              ]}
+              onPress={() => {
+                const fieldName = `skimmer${index + 1}LidCondition`;
+                setValue(fieldName, option.value);
+                handleFieldBlur(fieldName, option.value);
+              }}
+            >
+              <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
+              <Text style={[
+                styles.conditionLabel,
+                lidCondition === option.value && { 
+                  color: option.color, 
+                  fontWeight: '600' 
+                }
+              ]}>
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <Controller
+          control={control}
+          name={`skimmer${index + 1}LidModel` as any}
+          render={({ field: { onChange, value } }) => (
+            <UncontrolledInput
+              label="Lid Model #"
+              initialValue={value || ''}
+              onBlurValue={(text: string) => {
+                onChange(text);
+                handleFieldBlur(`skimmer${index + 1}LidModel`, text);
+              }}
+              autoCorrect={false}
+              autoCapitalize="none"
+              returnKeyType="done"
+              blurOnSubmit={true}
+            />
+          )}
+        />
+      </View>
+    );
+  });
 
   // Mock satellite analysis function
   const analyzeSatelliteImage = async (address: string) => {
@@ -601,6 +1248,27 @@ export const PoolDetailsStep: React.FC = () => {
           minIndexForVisible: 0,
         }}
       >
+        {/* Calculated Metrics Display */}
+        {calculatedValues.volume > 0 && (
+          <View style={styles.metricsCard}>
+            <Text style={styles.metricsTitle}>Pool Calculations</Text>
+            <View style={styles.metricsRow}>
+              <View style={styles.metricItem}>
+                <Text style={styles.metricLabel}>Average Depth</Text>
+                <Text style={styles.metricValue}>{calculatedValues.avgDepth.toFixed(1)} ft</Text>
+              </View>
+              <View style={styles.metricItem}>
+                <Text style={styles.metricLabel}>Surface Area</Text>
+                <Text style={styles.metricValue}>{calculatedValues.surfaceArea.toLocaleString()} sq ft</Text>
+              </View>
+              <View style={styles.metricItem}>
+                <Text style={styles.metricLabel}>Volume</Text>
+                <Text style={styles.metricValue}>{calculatedValues.volume.toLocaleString()} gal</Text>
+              </View>
+            </View>
+          </View>
+        )}
+        
         {POOL_SECTIONS.map((section) => (
           <View 
             key={section.id} 
@@ -629,174 +1297,63 @@ export const PoolDetailsStep: React.FC = () => {
             {expandedSections.includes(section.id) && (
               <View style={styles.sectionContent}>
                 {section.id === 'size-shape' && (
-                  <View>
-                    {/* Pool Type */}
-                    <Text style={styles.fieldLabel}>Pool Type</Text>
-                    <View style={styles.typeButtons}>
-                      <TouchableOpacity
-                        style={[styles.typeButton, poolType === 'inground' && styles.typeButtonActive]}
-                        onPress={() => {
-                          setValue('poolType', 'inground');
-                          handleFieldBlur('poolType', 'inground');
-                        }}
-                      >
-                        <Text style={[styles.typeButtonText, poolType === 'inground' && styles.typeButtonTextActive]}>
-                          In-Ground
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.typeButton, poolType === 'aboveGround' && styles.typeButtonActive]}
-                        onPress={() => {
-                          setValue('poolType', 'aboveGround');
-                          handleFieldBlur('poolType', 'aboveGround');
-                        }}
-                      >
-                        <Text style={[styles.typeButtonText, poolType === 'aboveGround' && styles.typeButtonTextActive]}>
-                          Above Ground
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                    
-                    {/* Pool Shape */}
-                    <Text style={styles.fieldLabel}>Pool Shape</Text>
-                    <View style={styles.shapeGrid}>
-                      {POOL_SHAPES.map((shapeOption) => (
-                        <TouchableOpacity
-                          key={shapeOption.value}
-                          style={[
-                            styles.shapeButton,
-                            shape === shapeOption.value && styles.shapeButtonActive
-                          ]}
-                          onPress={() => {
-                            setValue('shape', shapeOption.value);
-                            handleFieldBlur('shape', shapeOption.value);
-                          }}
-                        >
-                          <Ionicons
-                            name={shapeOption.icon as any}
-                            size={24}
-                            color={shape === shapeOption.value ? theme.colors.white : theme.colors.gray}
-                            style={styles.shapeIcon}
-                          />
-                          <Text style={[
-                            styles.shapeButtonText,
-                            shape === shapeOption.value && styles.shapeButtonTextActive
-                          ]}>
-                            {shapeOption.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                    
-                    {/* Dimensions */}
-                    <Text style={styles.fieldLabel}>Dimensions</Text>
-                    <View style={styles.row}>
-                      <View style={styles.thirdField}>
-                        <Controller
-                          control={control}
-                          name="length"
-                          render={({ field: { onChange, value } }) => (
-                            <UncontrolledInput
-                              label="Length"
-                              initialValue={value ? String(value) : ''}
-                              onBlurValue={(text: string) => {
-                                const num = parseFloat(text);
-                                onChange(isNaN(num) ? undefined : num);
-                                handleFieldBlur('length', num);
-                              }}
-                              error={errors.length?.message}
-                              keyboardType="numeric"
-                            />
-                          )}
-                        />
-                      </View>
-                      <View style={styles.thirdField}>
-                        <Controller
-                          control={control}
-                          name="width"
-                          render={({ field: { onChange, value } }) => (
-                            <UncontrolledInput
-                              label="Width"
-                              initialValue={value ? String(value) : ''}
-                              onBlurValue={(text: string) => {
-                                const num = parseFloat(text);
-                                onChange(isNaN(num) ? undefined : num);
-                                handleFieldBlur('width', num);
-                              }}
-                              error={errors.width?.message}
-                              keyboardType="numeric"
-                            />
-                          )}
-                        />
-                      </View>
-                    </View>
-                  </View>
+                  <SizeShapeSection 
+                    control={control}
+                    errors={errors}
+                    setValue={setValue}
+                    poolType={poolType}
+                    shape={shape}
+                    handleFieldBlur={handleFieldBlur}
+                    isAnalyzingSatellite={isAnalyzingSatellite}
+                    satelliteAnalyzed={satelliteAnalyzed}
+                    satelliteAnalysisResult={satelliteAnalysisResult}
+                    handleSatelliteAnalysis={handleSatelliteAnalysis}
+                    selectedFeatures={selectedFeatures}
+                    toggleFeature={toggleFeature}
+                  />
                 )}
                 {section.id === 'surface' && (
-                  <View>
-                    <Text style={styles.fieldLabel}>Surface Material</Text>
-                    <View style={styles.optionsGrid}>
-                      {SURFACE_MATERIALS.map((type) => (
-                        <TouchableOpacity
-                          key={type.value}
-                          style={[
-                            styles.optionButton,
-                            surfaceMaterial === type.value && styles.optionButtonActive
-                          ]}
-                          onPress={() => {
-                            setValue('surfaceMaterial', type.value as any);
-                            handleFieldBlur('surfaceMaterial', type.value);
-                          }}
-                        >
-                          <Text style={[
-                            styles.optionText,
-                            surfaceMaterial === type.value && styles.optionTextActive
-                          ]}>
-                            {type.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
+                  <SurfaceSection 
+                    control={control}
+                    errors={errors}
+                    setValue={setValue}
+                    surfaceMaterial={surfaceMaterial}
+                    surfaceCondition={surfaceCondition}
+                    handleFieldBlur={handleFieldBlur}
+                    surfacePhotos={surfacePhotos}
+                    setSurfacePhotos={setSurfacePhotos}
+                  />
                 )}
                 {section.id === 'environment' && (
-                  <View>
-                    <Text style={styles.fieldLabel}>Environment</Text>
-                  </View>
+                  <EnvironmentSection 
+                    control={control}
+                    errors={errors}
+                    setValue={setValue}
+                    handleFieldBlur={handleFieldBlur}
+                    environmentPhotos={environmentPhotos}
+                    setEnvironmentPhotos={setEnvironmentPhotos}
+                  />
                 )}
                 {section.id === 'skimmers' && (
-                  <View>
-                    <Text style={styles.fieldLabel}>Skimmers</Text>
-                  </View>
+                  <SkimmersSection 
+                    control={control}
+                    errors={errors}
+                    setValue={setValue}
+                    skimmerCount={skimmerCount}
+                    setSkimmerCount={setSkimmerCount}
+                    handleFieldBlur={handleFieldBlur}
+                  />
                 )}
                 {section.id === 'deck' && (
-                  <View>
-                    <Text style={styles.fieldLabel}>Deck Material</Text>
-                    <View style={styles.optionsGrid}>
-                      {['pavers', 'stamped concrete', 'tile', 'natural stone', 'concrete', 'other'].map((material) => (
-                        <TouchableOpacity
-                          key={material}
-                          style={[
-                            styles.optionButton,
-                            deckMaterial === material && styles.optionButtonActive
-                          ]}
-                          onPress={() => {
-                            setValue('deckMaterial', material);
-                            handleFieldBlur('deckMaterial', material);
-                          }}
-                        >
-                          <Text style={[
-                            styles.optionText,
-                            deckMaterial === material && styles.optionTextActive
-                          ]}>
-                            {material.split(' ').map(word => 
-                              word.charAt(0).toUpperCase() + word.slice(1)
-                            ).join(' ')}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
+                  <DeckSection 
+                    control={control}
+                    setValue={setValue}
+                    deckMaterial={deckMaterial}
+                    deckCleanliness={deckCleanliness}
+                    handleFieldBlur={handleFieldBlur}
+                    deckPhotos={deckPhotos}
+                    setDeckPhotos={setDeckPhotos}
+                  />
                 )}
               </View>
             )}
@@ -1272,5 +1829,70 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.h3.fontSize,
     fontWeight: '600',
     color: theme.colors.darkBlue,
+  },
+  // Missing styles for counter
+  counterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.lg,
+  },
+  counterDisplay: {
+    minWidth: 60,
+    alignItems: 'center',
+    marginHorizontal: theme.spacing.lg,
+  },
+  counterText: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: theme.colors.darkBlue,
+  },
+  // Missing styles for options
+  optionsRow: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  // Missing styles for features
+  featureLabel: {
+    fontSize: theme.typography.small.fontSize,
+    color: theme.colors.gray,
+    marginLeft: theme.spacing.xs,
+  },
+  // Missing styles for metrics card
+  metricsCard: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  metricsTitle: {
+    fontSize: theme.typography.h3.fontSize,
+    fontWeight: '600',
+    color: theme.colors.darkBlue,
+    marginBottom: theme.spacing.md,
+    textAlign: 'center',
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  metricItem: {
+    alignItems: 'center',
+  },
+  metricLabel: {
+    fontSize: theme.typography.small.fontSize,
+    color: theme.colors.gray,
+    marginBottom: theme.spacing.xs,
+  },
+  metricValue: {
+    fontSize: theme.typography.h3.fontSize,
+    fontWeight: '700',
+    color: theme.colors.blueGreen,
   },
 });
