@@ -7,7 +7,8 @@
       "Bash(rg:*)",
       "Bash(ls:*)",
       "Bash(rm:*)",
-      "Bash(expo start:*)"
+      "Bash(expo start:*)",
+      "Bash(sed:*)"
     ],
     "deny": []
   }

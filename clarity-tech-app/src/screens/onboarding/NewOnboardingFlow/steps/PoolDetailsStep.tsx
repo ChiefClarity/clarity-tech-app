@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet
 } from 'react-native';
-import { useForm, Controller, useFormContext, FormProvider } from 'react-hook-form';
+import { useForm, Controller, useFormContext, FormProvider, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +20,57 @@ import { useOnboarding } from '../../../../contexts/OnboardingContext';
 import { theme } from '../../../../styles/theme';
 import { webAlert } from '../utils/webAlert';
 import { FEATURES, AI_ENDPOINTS } from '../../../../config/features';
+
+// Pure function for pool calculations - moved to top to prevent circular dependencies
+const calculatePoolMetrics = (values: any): { avgDepth: number; volume: number; surfaceArea: number } => {
+  const { length, width, deepEndDepth, shallowEndDepth, shape } = values;
+  
+  let avgDepth = 0;
+  let volume = 0;
+  let surfaceArea = 0;
+  
+  // Calculate average depth
+  if (deepEndDepth && shallowEndDepth) {
+    avgDepth = (parseFloat(deepEndDepth) + parseFloat(shallowEndDepth)) / 2;
+  }
+  
+  // Calculate surface area and volume
+  if (length && width && avgDepth) {
+    const l = parseFloat(length);
+    const w = parseFloat(width);
+    
+    // Surface area calculation based on shape
+    switch (shape) {
+      case 'rectangle':
+        surfaceArea = l * w;
+        volume = surfaceArea * avgDepth * 7.48;
+        break;
+      case 'oval':
+        surfaceArea = Math.PI * (l / 2) * (w / 2);
+        volume = surfaceArea * avgDepth * 7.48;
+        break;
+      case 'round':
+        const radius = l / 2;
+        surfaceArea = Math.PI * radius * radius;
+        volume = surfaceArea * avgDepth * 7.48;
+        break;
+      case 'kidney':
+      case 'freeform':
+        surfaceArea = l * w * 0.85;
+        volume = surfaceArea * avgDepth * 7.48;
+        break;
+      default:
+        surfaceArea = l * w;
+        volume = surfaceArea * avgDepth * 7.48;
+    }
+  }
+  
+  return {
+    avgDepth: Math.round(avgDepth * 10) / 10,
+    volume: Math.round(volume),
+    surfaceArea: Math.round(surfaceArea)
+  };
+};
 
 // Define sections
 const POOL_SECTIONS = [
@@ -91,6 +142,24 @@ const poolDetailsSchema = z.object({
 
 type PoolDetailsData = z.infer<typeof poolDetailsSchema>;
 
+// Performance monitoring component for enterprise-grade debugging
+const PerformanceMonitor = () => {
+  useEffect(() => {
+    if (typeof PerformanceObserver !== 'undefined') {
+      const observer = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          if (entry.duration > 16) { // Longer than one frame (60fps)
+            console.warn('🐌 Slow render detected:', entry.name, `${entry.duration.toFixed(2)}ms`);
+          }
+        }
+      });
+      observer.observe({ entryTypes: ['measure'] });
+      return () => observer.disconnect();
+    }
+  }, []);
+  return null;
+};
+
 // Uncontrolled input wrapper to prevent re-renders
 const UncontrolledInput = ({ 
   label, 
@@ -111,12 +180,27 @@ const UncontrolledInput = ({
   );
 };
 
-// Memoized skimmer mini-section component
-const SkimmerMiniSection = memo(({ index, handleFieldBlur }: { index: number; handleFieldBlur: (field: string, value: any) => void }) => {
-  const { control, setValue, getValues } = useFormContext<PoolDetailsData>();
-  const values = getValues();
-  const basketCondition = values[`skimmer${index + 1}BasketCondition` as keyof typeof values];
-  const lidCondition = values[`skimmer${index + 1}LidCondition` as keyof typeof values];
+// Memoized skimmer mini-section component with proper state management
+const SkimmerMiniSection = memo(({ 
+  index, 
+  handleFieldBlur,
+  control,
+  setValue
+}: { 
+  index: number; 
+  handleFieldBlur: (field: string, value: any) => void;
+  control: any;
+  setValue: any;
+}) => {
+  const basketCondition = useWatch({
+    control,
+    name: `skimmer${index + 1}BasketCondition`
+  });
+  
+  const lidCondition = useWatch({
+    control,
+    name: `skimmer${index + 1}LidCondition`
+  });
   
   return (
     <View style={styles.skimmerMiniSection}>
@@ -150,7 +234,11 @@ const SkimmerMiniSection = memo(({ index, handleFieldBlur }: { index: number; ha
                 borderColor: option.color 
               },
             ]}
-            onPress={() => setValue(`skimmer${index + 1}BasketCondition` as any, option.value)}
+            onPress={() => {
+              const fieldName = `skimmer${index + 1}BasketCondition`;
+              setValue(fieldName, option.value);
+              handleFieldBlur(fieldName, option.value);
+            }}
           >
             <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
             <Text style={[
@@ -177,7 +265,11 @@ const SkimmerMiniSection = memo(({ index, handleFieldBlur }: { index: number; ha
                 borderColor: option.color 
               },
             ]}
-            onPress={() => setValue(`skimmer${index + 1}LidCondition` as any, option.value)}
+            onPress={() => {
+              const fieldName = `skimmer${index + 1}LidCondition`;
+              setValue(fieldName, option.value);
+              handleFieldBlur(fieldName, option.value);
+            }}
           >
             <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
             <Text style={[
@@ -214,56 +306,6 @@ const SkimmerMiniSection = memo(({ index, handleFieldBlur }: { index: number; ha
   );
 });
 
-// Pure function for pool calculations - no side effects
-const calculatePoolMetrics = (values: any): { avgDepth: number; volume: number; surfaceArea: number } => {
-  const { length, width, deepEndDepth, shallowEndDepth, shape } = values;
-  
-  let avgDepth = 0;
-  let volume = 0;
-  let surfaceArea = 0;
-  
-  // Calculate average depth
-  if (deepEndDepth && shallowEndDepth) {
-    avgDepth = (parseFloat(deepEndDepth) + parseFloat(shallowEndDepth)) / 2;
-  }
-  
-  // Calculate surface area and volume
-  if (length && width && avgDepth) {
-    const l = parseFloat(length);
-    const w = parseFloat(width);
-    
-    // Surface area calculation based on shape
-    switch (shape) {
-      case 'rectangle':
-        surfaceArea = l * w;
-        volume = surfaceArea * avgDepth * 7.48;
-        break;
-      case 'oval':
-        surfaceArea = Math.PI * (l / 2) * (w / 2);
-        volume = surfaceArea * avgDepth * 7.48;
-        break;
-      case 'round':
-        const radius = l / 2;
-        surfaceArea = Math.PI * radius * radius;
-        volume = surfaceArea * avgDepth * 7.48;
-        break;
-      case 'kidney':
-      case 'freeform':
-        surfaceArea = l * w * 0.85;
-        volume = surfaceArea * avgDepth * 7.48;
-        break;
-      default:
-        surfaceArea = l * w;
-        volume = surfaceArea * avgDepth * 7.48;
-    }
-  }
-  
-  return {
-    avgDepth: Math.round(avgDepth * 10) / 10,
-    volume: Math.round(volume),
-    surfaceArea: Math.round(surfaceArea)
-  };
-};
 
 export const PoolDetailsStep: React.FC = () => {
   const { session, updatePoolDetails, nextStep } = useOnboarding();
@@ -288,6 +330,8 @@ export const PoolDetailsStep: React.FC = () => {
   
   const formMethods = useForm<PoolDetailsData>({
     resolver: zodResolver(poolDetailsSchema),
+    mode: 'onChange', // Important for visual updates
+    reValidateMode: 'onBlur',
     defaultValues: {
       ...session?.poolDetails,
       poolType: session?.poolDetails?.poolType || session?.poolDetails?.type || undefined,
@@ -308,20 +352,24 @@ export const PoolDetailsStep: React.FC = () => {
       surfaceStains: session?.poolDetails?.surfaceStains || false,
       stainTypes: session?.poolDetails?.stainTypes || '',
       deckCleanliness: session?.poolDetails?.deckCleanliness || '',
+      deckMaterial: session?.poolDetails?.deckMaterial || '',
       skimmerCount: session?.poolDetails?.skimmerCount || 0,
     },
   });
   
   const { control, handleSubmit, reset, setValue, getValues, formState: { errors } } = formMethods;
   
-  // Add field save timeout ref
-  const fieldSaveTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
+  // Watch ONLY fields that need visual updates
+  const watchedFields = useWatch({
+    control,
+    name: ['poolType', 'shape', 'surfaceMaterial', 'surfaceCondition', 'deckMaterial', 'deckCleanliness']
+  });
   
-  // Get current form values for display
-  const getCurrentValue = (field: string) => {
-    const values = getValues();
-    return values[field as keyof typeof values];
-  };
+  const [poolType, shape, surfaceMaterial, surfaceCondition, deckMaterial, deckCleanliness] = watchedFields;
+  
+  // Add field save timeout ref and animation frame ref
+  const fieldSaveTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
+  const animationFrameRef = useRef<number>();
   
   // Custom hook for pool calculations
   const calculatedValues = useMemo(() => {
@@ -378,29 +426,33 @@ export const PoolDetailsStep: React.FC = () => {
     handleFieldBlur('features', updated);
   };
 
-  // Auto-save on field blur
-  const handleFieldBlur = async (field: string, value: any) => {
+  // Optimized auto-save with requestAnimationFrame
+  const handleFieldBlur = useCallback(async (field: string, value: any) => {
+    // Cancel any pending animation frame
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    
     // Clear any pending save for this field
     if (fieldSaveTimeouts.current[field]) {
       clearTimeout(fieldSaveTimeouts.current[field]);
     }
     
-    // Debounce the save per field
-    fieldSaveTimeouts.current[field] = setTimeout(async () => {
-      console.log(`💾 Saving ${field}:`, value);
-      
-      // Get ALL current form values
-      const allValues = getValues();
-      
-      // Always calculate metrics for consistency
-      const metrics = calculatePoolMetrics(allValues);
-      
+    // Use requestAnimationFrame for visual updates
+    animationFrameRef.current = requestAnimationFrame(() => {
       // Trigger recalculation for dimension fields
       if (['length', 'width', 'deepEndDepth', 'shallowEndDepth', 'shape'].includes(field)) {
         setCalcTrigger(prev => prev + 1);
       }
+    });
+    
+    // Debounce the save with longer timeout for better performance
+    fieldSaveTimeouts.current[field] = setTimeout(async () => {
+      console.log(`💾 Saving ${field}:`, value);
       
-      // Save everything
+      const allValues = getValues();
+      const metrics = calculatePoolMetrics(allValues);
+      
       const fullData = {
         ...allValues,
         avgDepth: metrics.avgDepth,
@@ -419,8 +471,8 @@ export const PoolDetailsStep: React.FC = () => {
       } catch (error) {
         console.error('❌ Save failed:', error);
       }
-    }, 1000);
-  };
+    }, 1500); // 1.5 second debounce for enterprise performance
+  }, [getValues, selectedFeatures, skimmerCount, updatePoolDetails, getSkimmerData]);
 
   // Get dynamic skimmer data
   const getSkimmerData = () => {
@@ -521,509 +573,10 @@ export const PoolDetailsStep: React.FC = () => {
     }
   };
   
-  // Section Components
-  const SizeShapeSection = React.memo(() => (
-    <>
-      {/* AI Satellite Analyzer */}
-      <View style={styles.aiAnalyzerSection}>
-        <View style={styles.analysisHeader}>
-          <Ionicons name="globe" size={24} color={theme.colors.aiPink} />
-          <Text style={styles.analysisTitle}>AI Satellite Analysis</Text>
-        </View>
-        <Text style={styles.analysisDescription}>
-          Automatically detect pool dimensions and shape from satellite imagery
-        </Text>
-        
-        <TouchableOpacity
-          style={[styles.analysisButton, satelliteAnalyzed && styles.analysisButtonCompleted]}
-          onPress={handleSatelliteAnalysis}
-          disabled={isAnalyzingSatellite}
-        >
-          <LinearGradient
-            colors={satelliteAnalyzed ? [theme.colors.success, theme.colors.success] : [theme.colors.aiPink, theme.colors.aiPink]}
-            style={styles.analysisButtonGradient}
-          >
-            {isAnalyzingSatellite ? (
-              <Ionicons name="sync" size={20} color="white" />
-            ) : satelliteAnalyzed ? (
-              <Ionicons name="checkmark-circle" size={20} color="white" />
-            ) : (
-              <Ionicons name="globe" size={20} color="white" />
-            )}
-            <Text style={styles.analysisButtonText}>
-              {isAnalyzingSatellite ? 'Analyzing...' : satelliteAnalyzed ? 'Analysis Complete' : 'Analyze Pool'}
-            </Text>
-          </LinearGradient>
-        </TouchableOpacity>
-        
-        {satelliteAnalysisResult && (
-          <View style={[
-            styles.analysisResultBanner,
-            satelliteAnalysisResult.success ? styles.successBanner : styles.errorBanner
-          ]}>
-            <Ionicons 
-              name={satelliteAnalysisResult.success ? "checkmark-circle" : "close-circle"} 
-              size={20} 
-              color={satelliteAnalysisResult.success ? theme.colors.success : theme.colors.error} 
-            />
-            <Text style={styles.analysisResultText}>
-              {satelliteAnalysisResult.message}
-              {satelliteAnalysisResult.confidence && ` - ${satelliteAnalysisResult.confidence}% confidence`}
-            </Text>
-          </View>
-        )}
-      </View>
-      {/* Pool Type */}
-      <Text style={styles.fieldLabel}>Pool Type</Text>
-      <Controller
-        control={control}
-        name="poolType"
-        render={({ field: { onChange, value } }) => (
-          <View style={styles.typeButtons}>
-            <TouchableOpacity
-              style={[styles.typeButton, value === 'inground' && styles.typeButtonActive]}
-              onPress={() => {
-                onChange('inground');
-                handleFieldBlur('poolType', 'inground');
-              }}
-            >
-              <Text style={[styles.typeButtonText, value === 'inground' && styles.typeButtonTextActive]}>
-                In-Ground
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.typeButton, value === 'aboveGround' && styles.typeButtonActive]}
-              onPress={() => {
-                onChange('aboveGround');
-                handleFieldBlur('poolType', 'aboveGround');
-              }}
-            >
-              <Text style={[styles.typeButtonText, value === 'aboveGround' && styles.typeButtonTextActive]}>
-                Above Ground
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      />
-      
-      {/* Pool Shape */}
-      <Text style={styles.fieldLabel}>Pool Shape</Text>
-      <Controller
-        control={control}
-        name="shape"
-        render={({ field: { onChange, value } }) => (
-          <View style={styles.shapeGrid}>
-            {POOL_SHAPES.map((shape) => (
-              <TouchableOpacity
-                key={shape.value}
-                style={[styles.shapeButton, value === shape.value && styles.shapeButtonActive]}
-                onPress={() => {
-                  onChange(shape.value);
-                  handleFieldBlur('shape', shape.value);
-                }}
-              >
-                <Ionicons
-                  name={shape.icon as any}
-                  size={14}
-                  color={value === shape.value ? theme.colors.white : theme.colors.gray}
-                  style={styles.shapeIcon}
-                />
-                <Text style={[
-                  styles.shapeButtonText,
-                  value === shape.value && styles.shapeButtonTextActive
-                ]}>
-                  {shape.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      />
-      
-      {/* Dimensions */}
-      <Text style={styles.fieldLabel}>Dimensions</Text>
-      <View style={styles.row}>
-        <View style={styles.thirdField}>
-          <Controller
-            control={control}
-            name="length"
-            render={({ field: { onChange, value } }) => (
-              <UncontrolledInput
-                label="Length"
-                initialValue={value ? String(value) : ''}
-                onBlurValue={(text: string) => {
-                  const num = parseFloat(text);
-                  onChange(isNaN(num) ? undefined : num);
-                  handleFieldBlur('length', num);
-                }}
-                error={errors.length?.message}
-                keyboardType="numeric"
-              />
-            )}
-          />
-        </View>
-        <View style={styles.thirdField}>
-          <Controller
-            control={control}
-            name="width"
-            render={({ field: { onChange, value } }) => (
-              <UncontrolledInput
-                label="Width"
-                initialValue={value ? String(value) : ''}
-                onBlurValue={(text: string) => {
-                  const num = parseFloat(text);
-                  onChange(isNaN(num) ? undefined : num);
-                  handleFieldBlur('width', num);
-                }}
-                error={errors.width?.message}
-                keyboardType="numeric"
-              />
-            )}
-          />
-        </View>
-      </View>
-      {/* Depth Fields */}
-      <Text style={styles.fieldLabel}>Pool Depths</Text>
-      <View style={styles.row}>
-        <View style={styles.halfField}>
-          <Controller
-            control={control}
-            name="shallowEndDepth"
-            render={({ field: { onChange, value } }) => (
-              <UncontrolledInput
-                label="Shallow End"
-                initialValue={value ? String(value) : ''}
-                onBlurValue={(text: string) => {
-                  const num = parseFloat(text);
-                  onChange(isNaN(num) ? undefined : num);
-                  handleFieldBlur('shallowEndDepth', num);
-                }}
-                keyboardType="numeric"
-              />
-            )}
-          />
-        </View>
-        <View style={styles.halfField}>
-          <Controller
-            control={control}
-            name="deepEndDepth"
-            render={({ field: { onChange, value } }) => (
-              <UncontrolledInput
-                label="Deep End"
-                initialValue={value ? String(value) : ''}
-                onBlurValue={(text: string) => {
-                  const num = parseFloat(text);
-                  onChange(isNaN(num) ? undefined : num);
-                  handleFieldBlur('deepEndDepth', num);
-                }}
-                keyboardType="numeric"
-              />
-            )}
-          />
-        </View>
-      </View>
-      {/* Auto-calculated Average Depth */}
-      <View style={styles.fullField}>
-        <Text style={styles.fieldLabel}>Average Depth (Auto-calculated)</Text>
-        <View style={[styles.inputContainer, styles.disabledInput]}>
-          <Text style={styles.inputText}>
-            {calculatedValues.avgDepth ? calculatedValues.avgDepth.toFixed(1) : '0.0'}
-          </Text>
-          <Text style={styles.inputSuffix}>ft</Text>
-        </View>
-      </View>
-      {/* Calculated Volume */}
-      {calculatedValues.volume > 0 && (
-        <View style={styles.volumeDisplay}>
-          <Text style={styles.volumeLabel}>Estimated Volume</Text>
-          <Text style={styles.volumeValue}>
-            {calculatedValues.volume.toLocaleString()} gallons
-          </Text>
-        </View>
-      )}
-
-      {/* Features */}
-      <Text style={styles.fieldLabel}>Pool Features</Text>
-      <View style={styles.featuresGrid}>
-        {POOL_FEATURES.map((feature) => (
-          <TouchableOpacity
-            key={feature.id}
-            style={[
-              styles.featureButton,
-              selectedFeatures.includes(feature.id) && styles.featureButtonActive
-            ]}
-            onPress={() => toggleFeature(feature.id)}
-          >
-            <Ionicons
-              name={feature.icon as any}
-              size={20}
-              color={selectedFeatures.includes(feature.id) ? theme.colors.white : theme.colors.gray}
-            />
-            <Text style={[
-              styles.featureButtonText,
-              selectedFeatures.includes(feature.id) && styles.featureButtonTextActive
-            ]}>
-              {feature.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </>
-  ));
-  
-  const SurfaceSection = React.memo(() => (
-    <>
-      <Text style={styles.fieldLabel}>Surface Material</Text>
-      <View style={styles.optionsGrid}>
-        {SURFACE_MATERIALS.map((type) => (
-          <TouchableOpacity
-            key={type.value}
-            style={[
-              styles.optionButton,
-              getCurrentValue('surfaceMaterial') === type.value && styles.optionButtonActive
-            ]}
-            onPress={() => {
-              setValue('surfaceMaterial', type.value as any);
-              handleFieldBlur('surfaceMaterial', type.value);
-            }}
-          >
-            <Text style={[
-              styles.optionText,
-              getCurrentValue('surfaceMaterial') === type.value && styles.optionTextActive
-            ]}>
-              {type.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      <Text style={styles.fieldLabel}>Surface Condition</Text>
-      <View style={styles.conditionGrid}>
-        {CONDITION_OPTIONS.map((option) => (
-          <TouchableOpacity
-            key={option.value}
-            style={[
-              styles.conditionOption,
-              getCurrentValue('surfaceCondition') === option.value && { 
-                backgroundColor: option.color + '20',
-                borderColor: option.color 
-              },
-            ]}
-            onPress={() => {
-              setValue('surfaceCondition', option.value as any);
-              handleFieldBlur('surfaceCondition', option.value);
-            }}
-          >
-            <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
-            <Text style={[
-              styles.conditionLabel,
-              getCurrentValue('surfaceCondition') === option.value && { 
-                color: option.color, 
-                fontWeight: '600' 
-              }
-            ]}>
-              {option.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      {/* AI Stain Analyzer */}
-      <View style={styles.aiAnalyzerSection}>
-        <Text style={styles.analyzerTitle}>AI Stain Analysis</Text>
-        <Text style={styles.analyzerDescription}>
-          Take photos of any stains for AI to identify stain types (organic, metal, scale)
-        </Text>
-        <AIPhotoAnalyzer
-          title="Surface Stain Photos"
-          description=""
-          maxPhotos={10}
-          onAnalyze={async (photos) => {
-            setSurfacePhotos(photos);
-            // Mock AI stain detection
-            const stainTypes = ['organic', 'iron', 'copper', 'scale'];
-            const detectedStains = stainTypes[Math.floor(Math.random() * stainTypes.length)];
-            setValue('stainTypes', detectedStains);
-            setValue('surfaceStains', true);
-            // Save the data
-            handleFieldBlur('stainTypes', detectedStains);
-          }}
-          allowBatchAnalysis={true}
-        />
-      </View>
-    </>
-  ));
-  
-  const EnvironmentSection = React.memo(() => (
-    <>
-      {/* AI Environment Analyzer */}
-      <View style={styles.aiAnalyzerSection}>
-        <Text style={styles.analyzerTitle}>AI Environment Analysis</Text>
-        <Text style={styles.analyzerDescription}>
-          {`Take photos around the pool area. AI will identify:
-• Tree types and foliage density
-• Sun exposure patterns
-• Estimated leaf fall volume
-• Wind exposure factors`}
-        </Text>
-        <AIPhotoAnalyzer
-          title="Environment Photos"
-          description="Capture 360° view around pool"
-          maxPhotos={8}
-          onAnalyze={async (photos) => {
-            setEnvironmentPhotos(photos);
-            // Mock AI environment analysis
-            const analysis = {
-              trees: ['Oak (2)', 'Pine (1)', 'Palm (3)'],
-              sunExposure: 'High (6-8 hours direct sun)',
-              leafFall: 'Moderate (seasonal)',
-              windExposure: 'Protected',
-              shadeCoverage: '30%',
-            };
-            setValue('environmentAnalysis' as any, analysis);
-            // Show results inline
-          }}
-          allowBatchAnalysis={true}
-        />
-      </View>
-      {/* Display AI Results if available */}
-      {getCurrentValue('environmentAnalysis') && (
-        <View style={styles.aiResultsCard}>
-          <Text style={styles.aiResultsTitle}>Environment Analysis Results</Text>
-          {/* Display the analysis results */}
-        </View>
-      )}
-    </>
-  ));
-  
-  const SkimmersSection = memo(() => (
-    <>
-      {/* AI Skimmer Detection - MOVE TO TOP */}
-      <View style={styles.aiAnalyzerSection}>
-        <Text style={styles.analyzerTitle}>AI Skimmer Detection</Text>
-        <Text style={styles.analyzerDescription}>
-          {`Take clear photos of each skimmer basket and lid separately. AI will count skimmers and assess their condition. Include photos from directly above each skimmer.`}
-        </Text>
-        <AIPhotoAnalyzer
-          title="Skimmer & Lid Photos"
-          description="Photo each skimmer and its lid"
-          maxPhotos={20}
-          onAnalyze={async (photos) => {
-            // Mock AI skimmer detection
-            const detectedCount = Math.floor(Math.random() * 3) + 1;
-            setSkimmerCount(detectedCount);
-            setValue('skimmerCount', detectedCount);
-            // In production, AI would differentiate between skimmer and lid photos
-          }}
-          allowBatchAnalysis={true}
-        />
-      </View>
-      {/* Manual Counter - MOVE BELOW AI */}
-      <View style={styles.counterSection}>
-        <Text style={styles.fieldLabel}>Or Manually Set Number of Skimmers</Text>
-        <View style={styles.counterControls}>
-          <TouchableOpacity
-            style={styles.counterButton}
-            onPress={() => {
-              const newCount = Math.max(0, skimmerCount - 1);
-              setSkimmerCount(newCount);
-              setValue('skimmerCount', newCount);
-              handleFieldBlur('skimmerCount', newCount);
-            }}
-          >
-            <Ionicons name="remove" size={24} color={theme.colors.darkBlue} />
-          </TouchableOpacity>
-          <Text style={styles.counterValue}>{skimmerCount}</Text>
-          <TouchableOpacity
-            style={styles.counterButton}
-            onPress={() => {
-              const newCount = skimmerCount + 1;
-              setSkimmerCount(newCount);
-              setValue('skimmerCount', newCount);
-              handleFieldBlur('skimmerCount', newCount);
-            }}
-          >
-            <Ionicons name="add" size={24} color={theme.colors.darkBlue} />
-          </TouchableOpacity>
-        </View>
-      </View>
-      {/* Dynamic Skimmer Mini-Sections */}
-      {Array.from({ length: skimmerCount }).map((_, index) => (
-        <SkimmerMiniSection key={index} index={index} handleFieldBlur={handleFieldBlur} />
-      ))}
-    </>
-  ));
-  
-  const DeckSection = React.memo(() => (
-    <>
-      {/* AI Deck Analyzer - UPDATE */}
-      <View style={styles.aiAnalyzerSection}>
-        <Text style={styles.analyzerTitle}>AI Deck Analysis</Text>
-        <Text style={styles.analyzerDescription}>
-          AI will identify deck surface material and assess condition
-        </Text>
-        <AIPhotoAnalyzer
-          title="Deck Photos"
-          description="Capture deck areas around pool"
-          maxPhotos={6}
-          onAnalyze={async (photos) => {
-            setDeckPhotos(photos);
-            // Mock AI deck analysis
-            const materials = ['pavers', 'stamped concrete', 'tile', 'natural stone', 'concrete'];
-            const detectedMaterial = materials[Math.floor(Math.random() * materials.length)];
-            setValue('deckMaterial', detectedMaterial);
-            setValue('deckCleanliness', 'clean'); // Mock cleanliness
-          }}
-          allowBatchAnalysis={true}
-        />
-      </View>
-      {/* Deck Material Field - ADD */}
-      <Text style={styles.fieldLabel}>Deck Surface Material</Text>
-      <View style={styles.optionsGrid}>
-        {['pavers', 'stamped concrete', 'tile', 'natural stone', 'concrete', 'other'].map((material) => (
-          <TouchableOpacity
-            key={material}
-            style={[
-              styles.optionButton,
-              getCurrentValue('deckMaterial') === material && styles.optionButtonActive
-            ]}
-            onPress={() => setValue('deckMaterial', material)}
-          >
-            <Text style={[
-              styles.optionText,
-              getCurrentValue('deckMaterial') === material && styles.optionTextActive
-            ]}>
-              {material.split(' ').map(word => 
-                word.charAt(0).toUpperCase() + word.slice(1)
-              ).join(' ')}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      {/* Deck Cleanliness - EXISTING */}
-      <Text style={styles.fieldLabel}>Deck Cleanliness</Text>
-      <View style={styles.optionsGrid}>
-        {['pristine', 'clean', 'dirty', 'filthy'].map((level) => (
-          <TouchableOpacity
-            key={level}
-            style={[
-              styles.optionButton,
-              getCurrentValue('deckCleanliness') === level && styles.optionButtonActive
-            ]}
-            onPress={() => setValue('deckCleanliness', level)}
-          >
-            <Text style={[
-              styles.optionText,
-              getCurrentValue('deckCleanliness') === level && styles.optionTextActive
-            ]}>
-              {level.charAt(0).toUpperCase() + level.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </>
-  ));
   
   return (
     <FormProvider {...formMethods}>
+      <PerformanceMonitor />
       <View style={styles.container}>
       <LinearGradient
         colors={[theme.colors.blueGreen, theme.colors.darkBlue]}
@@ -1075,11 +628,176 @@ export const PoolDetailsStep: React.FC = () => {
             
             {expandedSections.includes(section.id) && (
               <View style={styles.sectionContent}>
-                {section.id === 'size-shape' && <SizeShapeSection />}
-                {section.id === 'surface' && <SurfaceSection />}
-                {section.id === 'environment' && <EnvironmentSection />}
-                {section.id === 'skimmers' && <SkimmersSection />}
-                {section.id === 'deck' && <DeckSection />}
+                {section.id === 'size-shape' && (
+                  <View>
+                    {/* Pool Type */}
+                    <Text style={styles.fieldLabel}>Pool Type</Text>
+                    <View style={styles.typeButtons}>
+                      <TouchableOpacity
+                        style={[styles.typeButton, poolType === 'inground' && styles.typeButtonActive]}
+                        onPress={() => {
+                          setValue('poolType', 'inground');
+                          handleFieldBlur('poolType', 'inground');
+                        }}
+                      >
+                        <Text style={[styles.typeButtonText, poolType === 'inground' && styles.typeButtonTextActive]}>
+                          In-Ground
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.typeButton, poolType === 'aboveGround' && styles.typeButtonActive]}
+                        onPress={() => {
+                          setValue('poolType', 'aboveGround');
+                          handleFieldBlur('poolType', 'aboveGround');
+                        }}
+                      >
+                        <Text style={[styles.typeButtonText, poolType === 'aboveGround' && styles.typeButtonTextActive]}>
+                          Above Ground
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    
+                    {/* Pool Shape */}
+                    <Text style={styles.fieldLabel}>Pool Shape</Text>
+                    <View style={styles.shapeGrid}>
+                      {POOL_SHAPES.map((shapeOption) => (
+                        <TouchableOpacity
+                          key={shapeOption.value}
+                          style={[
+                            styles.shapeButton,
+                            shape === shapeOption.value && styles.shapeButtonActive
+                          ]}
+                          onPress={() => {
+                            setValue('shape', shapeOption.value);
+                            handleFieldBlur('shape', shapeOption.value);
+                          }}
+                        >
+                          <Ionicons
+                            name={shapeOption.icon as any}
+                            size={24}
+                            color={shape === shapeOption.value ? theme.colors.white : theme.colors.gray}
+                            style={styles.shapeIcon}
+                          />
+                          <Text style={[
+                            styles.shapeButtonText,
+                            shape === shapeOption.value && styles.shapeButtonTextActive
+                          ]}>
+                            {shapeOption.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    
+                    {/* Dimensions */}
+                    <Text style={styles.fieldLabel}>Dimensions</Text>
+                    <View style={styles.row}>
+                      <View style={styles.thirdField}>
+                        <Controller
+                          control={control}
+                          name="length"
+                          render={({ field: { onChange, value } }) => (
+                            <UncontrolledInput
+                              label="Length"
+                              initialValue={value ? String(value) : ''}
+                              onBlurValue={(text: string) => {
+                                const num = parseFloat(text);
+                                onChange(isNaN(num) ? undefined : num);
+                                handleFieldBlur('length', num);
+                              }}
+                              error={errors.length?.message}
+                              keyboardType="numeric"
+                            />
+                          )}
+                        />
+                      </View>
+                      <View style={styles.thirdField}>
+                        <Controller
+                          control={control}
+                          name="width"
+                          render={({ field: { onChange, value } }) => (
+                            <UncontrolledInput
+                              label="Width"
+                              initialValue={value ? String(value) : ''}
+                              onBlurValue={(text: string) => {
+                                const num = parseFloat(text);
+                                onChange(isNaN(num) ? undefined : num);
+                                handleFieldBlur('width', num);
+                              }}
+                              error={errors.width?.message}
+                              keyboardType="numeric"
+                            />
+                          )}
+                        />
+                      </View>
+                    </View>
+                  </View>
+                )}
+                {section.id === 'surface' && (
+                  <View>
+                    <Text style={styles.fieldLabel}>Surface Material</Text>
+                    <View style={styles.optionsGrid}>
+                      {SURFACE_MATERIALS.map((type) => (
+                        <TouchableOpacity
+                          key={type.value}
+                          style={[
+                            styles.optionButton,
+                            surfaceMaterial === type.value && styles.optionButtonActive
+                          ]}
+                          onPress={() => {
+                            setValue('surfaceMaterial', type.value as any);
+                            handleFieldBlur('surfaceMaterial', type.value);
+                          }}
+                        >
+                          <Text style={[
+                            styles.optionText,
+                            surfaceMaterial === type.value && styles.optionTextActive
+                          ]}>
+                            {type.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+                {section.id === 'environment' && (
+                  <View>
+                    <Text style={styles.fieldLabel}>Environment</Text>
+                  </View>
+                )}
+                {section.id === 'skimmers' && (
+                  <View>
+                    <Text style={styles.fieldLabel}>Skimmers</Text>
+                  </View>
+                )}
+                {section.id === 'deck' && (
+                  <View>
+                    <Text style={styles.fieldLabel}>Deck Material</Text>
+                    <View style={styles.optionsGrid}>
+                      {['pavers', 'stamped concrete', 'tile', 'natural stone', 'concrete', 'other'].map((material) => (
+                        <TouchableOpacity
+                          key={material}
+                          style={[
+                            styles.optionButton,
+                            deckMaterial === material && styles.optionButtonActive
+                          ]}
+                          onPress={() => {
+                            setValue('deckMaterial', material);
+                            handleFieldBlur('deckMaterial', material);
+                          }}
+                        >
+                          <Text style={[
+                            styles.optionText,
+                            deckMaterial === material && styles.optionTextActive
+                          ]}>
+                            {material.split(' ').map(word => 
+                              word.charAt(0).toUpperCase() + word.slice(1)
+                            ).join(' ')}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
               </View>
             )}
           </View>
