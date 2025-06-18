@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
 import {
   View,
   ScrollView,
@@ -91,9 +91,32 @@ const poolDetailsSchema = z.object({
 
 type PoolDetailsData = z.infer<typeof poolDetailsSchema>;
 
+// Uncontrolled input wrapper to prevent re-renders
+const UncontrolledInput = ({ 
+  label, 
+  initialValue, 
+  onBlurValue,
+  ...props 
+}: any) => {
+  const [localValue, setLocalValue] = useState(initialValue || '');
+  
+  return (
+    <ModernInput
+      label={label}
+      value={localValue}
+      onChangeText={setLocalValue}
+      onBlur={() => onBlurValue(localValue)}
+      {...props}
+    />
+  );
+};
+
 // Memoized skimmer mini-section component
-const SkimmerMiniSection = memo(({ index }: { index: number }) => {
-  const { control, watch, setValue } = useFormContext<PoolDetailsData>();
+const SkimmerMiniSection = memo(({ index, handleFieldBlur }: { index: number; handleFieldBlur: (field: string, value: any) => void }) => {
+  const { control, setValue, getValues } = useFormContext<PoolDetailsData>();
+  const values = getValues();
+  const basketCondition = values[`skimmer${index + 1}BasketCondition` as keyof typeof values];
+  const lidCondition = values[`skimmer${index + 1}LidCondition` as keyof typeof values];
   
   return (
     <View style={styles.skimmerMiniSection}>
@@ -122,7 +145,7 @@ const SkimmerMiniSection = memo(({ index }: { index: number }) => {
             key={option.value}
             style={[
               styles.conditionOption,
-              watch(`skimmer${index + 1}BasketCondition` as any) === option.value && { 
+              basketCondition === option.value && { 
                 backgroundColor: option.color + '20',
                 borderColor: option.color 
               },
@@ -132,7 +155,7 @@ const SkimmerMiniSection = memo(({ index }: { index: number }) => {
             <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
             <Text style={[
               styles.conditionLabel,
-              watch(`skimmer${index + 1}BasketCondition` as any) === option.value && { 
+              basketCondition === option.value && { 
                 color: option.color, 
                 fontWeight: '600' 
               }
@@ -149,7 +172,7 @@ const SkimmerMiniSection = memo(({ index }: { index: number }) => {
             key={option.value}
             style={[
               styles.conditionOption,
-              watch(`skimmer${index + 1}LidCondition` as any) === option.value && { 
+              lidCondition === option.value && { 
                 backgroundColor: option.color + '20',
                 borderColor: option.color 
               },
@@ -159,7 +182,7 @@ const SkimmerMiniSection = memo(({ index }: { index: number }) => {
             <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
             <Text style={[
               styles.conditionLabel,
-              watch(`skimmer${index + 1}LidCondition` as any) === option.value && { 
+              lidCondition === option.value && { 
                 color: option.color, 
                 fontWeight: '600' 
               }
@@ -172,12 +195,14 @@ const SkimmerMiniSection = memo(({ index }: { index: number }) => {
       <Controller
         control={control}
         name={`skimmer${index + 1}LidModel` as any}
-        render={({ field: { onChange, onBlur, value } }) => (
-          <ModernInput
+        render={({ field: { onChange, value } }) => (
+          <UncontrolledInput
             label="Lid Model #"
-            value={value || ''}
-            onChangeText={onChange}
-            onBlur={onBlur}
+            initialValue={value || ''}
+            onBlurValue={(text: string) => {
+              onChange(text);
+              handleFieldBlur(`skimmer${index + 1}LidModel`, text);
+            }}
             autoCorrect={false}
             autoCapitalize="none"
             returnKeyType="done"
@@ -188,6 +213,57 @@ const SkimmerMiniSection = memo(({ index }: { index: number }) => {
     </View>
   );
 });
+
+// Pure function for pool calculations - no side effects
+const calculatePoolMetrics = (values: any): { avgDepth: number; volume: number; surfaceArea: number } => {
+  const { length, width, deepEndDepth, shallowEndDepth, shape } = values;
+  
+  let avgDepth = 0;
+  let volume = 0;
+  let surfaceArea = 0;
+  
+  // Calculate average depth
+  if (deepEndDepth && shallowEndDepth) {
+    avgDepth = (parseFloat(deepEndDepth) + parseFloat(shallowEndDepth)) / 2;
+  }
+  
+  // Calculate surface area and volume
+  if (length && width && avgDepth) {
+    const l = parseFloat(length);
+    const w = parseFloat(width);
+    
+    // Surface area calculation based on shape
+    switch (shape) {
+      case 'rectangle':
+        surfaceArea = l * w;
+        volume = surfaceArea * avgDepth * 7.48;
+        break;
+      case 'oval':
+        surfaceArea = Math.PI * (l / 2) * (w / 2);
+        volume = surfaceArea * avgDepth * 7.48;
+        break;
+      case 'round':
+        const radius = l / 2;
+        surfaceArea = Math.PI * radius * radius;
+        volume = surfaceArea * avgDepth * 7.48;
+        break;
+      case 'kidney':
+      case 'freeform':
+        surfaceArea = l * w * 0.85;
+        volume = surfaceArea * avgDepth * 7.48;
+        break;
+      default:
+        surfaceArea = l * w;
+        volume = surfaceArea * avgDepth * 7.48;
+    }
+  }
+  
+  return {
+    avgDepth: Math.round(avgDepth * 10) / 10,
+    volume: Math.round(volume),
+    surfaceArea: Math.round(surfaceArea)
+  };
+};
 
 export const PoolDetailsStep: React.FC = () => {
   const { session, updatePoolDetails, nextStep } = useOnboarding();
@@ -206,6 +282,7 @@ export const PoolDetailsStep: React.FC = () => {
   const [isAnalyzingSatellite, setIsAnalyzingSatellite] = useState(false);
   const [satelliteAnalyzed, setSatelliteAnalyzed] = useState(false);
   const [satelliteAnalysisResult, setSatelliteAnalysisResult] = useState<any>(null);
+  const [calcTrigger, setCalcTrigger] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
   const sectionRefs = useRef<{ [key: string]: View | null }>({});
   
@@ -235,77 +312,34 @@ export const PoolDetailsStep: React.FC = () => {
     },
   });
   
-  const { control, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = formMethods;
+  const { control, handleSubmit, reset, setValue, getValues, formState: { errors } } = formMethods;
   
-  const formValues = watch(['length', 'width', 'avgDepth', 'deepEndDepth', 'shallowEndDepth', 'shape', 'volume', 'surfaceArea']);
+  // Add field save timeout ref
+  const fieldSaveTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
+  
+  // Get current form values for display
+  const getCurrentValue = (field: string) => {
+    const values = getValues();
+    return values[field as keyof typeof values];
+  };
+  
+  // Custom hook for pool calculations
+  const calculatedValues = useMemo(() => {
+    const values = getValues();
+    return calculatePoolMetrics(values);
+  }, [calcTrigger]);
   
   // Load existing data
   useEffect(() => {
     if (session?.poolDetails) {
       reset(session.poolDetails);
       setSelectedFeatures(session.poolDetails.features || []);
-      setSkimmerCount(session.poolDetails.skimmerCount || 0);
+      // Only set skimmerCount if it's not already set
+      if (skimmerCount === 0 && session.poolDetails.skimmerCount > 0) {
+        setSkimmerCount(session.poolDetails.skimmerCount);
+      }
     }
-  }, [session?.poolDetails, reset]);
-  
-  // Debounced volume calculation
-  const calculateVolumeTimeoutRef = useRef<NodeJS.Timeout>();
-
-  useEffect(() => {
-    if (calculateVolumeTimeoutRef.current) {
-      clearTimeout(calculateVolumeTimeoutRef.current);
-    }
-    
-    calculateVolumeTimeoutRef.current = setTimeout(() => {
-      const { length, width, avgDepth, deepEndDepth, shallowEndDepth, shape } = formValues;
-      
-      let effectiveDepth = avgDepth || 0;
-      if (shallowEndDepth && deepEndDepth) {
-        effectiveDepth = (shallowEndDepth + deepEndDepth) / 2;
-        setValue('avgDepth', effectiveDepth, { 
-          shouldValidate: false,
-          shouldDirty: false,
-          shouldTouch: false 
-        });
-      }
-      
-      if (length && width && effectiveDepth) {
-        let volume = 0;
-        
-        switch (shape) {
-          case 'rectangle':
-            volume = length * width * effectiveDepth * 7.48;
-            break;
-          case 'oval':
-            volume = Math.PI * (length / 2) * (width / 2) * effectiveDepth * 7.48;
-            break;
-          case 'kidney':
-          case 'freeform':
-            volume = length * width * effectiveDepth * 7.48 * 0.85;
-            break;
-          default:
-            volume = length * width * effectiveDepth * 7.48;
-        }
-        
-        setValue('volume', Math.round(volume), { 
-          shouldValidate: false,
-          shouldDirty: false,
-          shouldTouch: false 
-        });
-        setValue('surfaceArea', Math.round(length * width), { 
-          shouldValidate: false,
-          shouldDirty: false,
-          shouldTouch: false 
-        });
-      }
-    }, 500);
-    
-    return () => {
-      if (calculateVolumeTimeoutRef.current) {
-        clearTimeout(calculateVolumeTimeoutRef.current);
-      }
-    };
-  }, [formValues.length, formValues.width, formValues.avgDepth, formValues.deepEndDepth, formValues.shallowEndDepth, formValues.shape, setValue]);
+  }, [session?.poolDetails, reset]); // Remove skimmerCount from dependencies
   
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => {
@@ -319,15 +353,17 @@ export const PoolDetailsStep: React.FC = () => {
   
   const onSubmit = async (data: PoolDetailsData) => {
     try {
+      const metrics = calculatePoolMetrics(data);
+      
       const dataWithFeatures = { 
-        ...data, 
+        ...data,
+        ...metrics,
         features: selectedFeatures,
         skimmerCount,
-        // Include dynamic skimmer data
         ...getSkimmerData(),
       };
+      
       await updatePoolDetails(dataWithFeatures);
-      // Navigation is handled by NavigationButtons component
     } catch (err) {
       webAlert.alert('Error', 'Failed to save pool details');
     }
@@ -339,64 +375,43 @@ export const PoolDetailsStep: React.FC = () => {
       : [...selectedFeatures, featureId];
     setSelectedFeatures(updated);
     setValue('features', updated);
+    handleFieldBlur('features', updated);
   };
 
   // Auto-save on field blur
   const handleFieldBlur = async (field: string, value: any) => {
-    // Save current form state
-    const allValues = getValues();
-    try {
-      await updatePoolDetails({
-        ...allValues,
-        skimmerCount,
-        ...getSkimmerData(),
-      });
-    } catch (error) {
-      console.error('Failed to save pool details:', error);
-    }
-  };
-
-  // Get dynamic skimmer data
-  const getSkimmerData = () => {
-    const skimmerData: any = {};
-    for (let i = 0; i < skimmerCount; i++) {
-      const skimmerNum = i + 1;
-      skimmerData[`skimmer${skimmerNum}Functioning`] = formValues[`skimmer${skimmerNum}Functioning`] || false;
-      skimmerData[`skimmer${skimmerNum}BasketCondition`] = formValues[`skimmer${skimmerNum}BasketCondition`] || '';
-      skimmerData[`skimmer${skimmerNum}LidCondition`] = formValues[`skimmer${skimmerNum}LidCondition`] || '';
-      skimmerData[`skimmer${skimmerNum}LidModel`] = formValues[`skimmer${skimmerNum}LidModel`] || '';
-    }
-    return skimmerData;
-  };
-
-  // Comprehensive auto-save
-  const saveTimeoutRef = useRef<NodeJS.Timeout>();
-
-  const saveAllData = useCallback(async () => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
+    // Clear any pending save for this field
+    if (fieldSaveTimeouts.current[field]) {
+      clearTimeout(fieldSaveTimeouts.current[field]);
     }
     
-    saveTimeoutRef.current = setTimeout(async () => {
-      const formData = getValues();
+    // Debounce the save per field
+    fieldSaveTimeouts.current[field] = setTimeout(async () => {
+      console.log(`💾 Saving ${field}:`, value);
+      
+      // Get ALL current form values
+      const allValues = getValues();
+      
+      // Always calculate metrics for consistency
+      const metrics = calculatePoolMetrics(allValues);
+      
+      // Trigger recalculation for dimension fields
+      if (['length', 'width', 'deepEndDepth', 'shallowEndDepth', 'shape'].includes(field)) {
+        setCalcTrigger(prev => prev + 1);
+      }
+      
+      // Save everything
       const fullData = {
-        ...formData,
-        poolType: formData.poolType,
-        type: formData.poolType, // Ensure both fields
+        ...allValues,
+        avgDepth: metrics.avgDepth,
+        volume: metrics.volume,
+        surfaceArea: metrics.surfaceArea,
+        poolType: allValues.poolType,
+        type: allValues.poolType,
         features: selectedFeatures,
         skimmerCount,
-        // Include ALL dynamic skimmer fields
-        ...(Array.from({ length: skimmerCount }).reduce((acc, _, i) => {
-          const num = i + 1;
-          acc[`skimmer${num}Functioning`] = formData[`skimmer${num}Functioning`] || false;
-          acc[`skimmer${num}BasketCondition`] = formData[`skimmer${num}BasketCondition`] || '';
-          acc[`skimmer${num}LidCondition`] = formData[`skimmer${num}LidCondition`] || '';
-          acc[`skimmer${num}LidModel`] = formData[`skimmer${num}LidModel`] || '';
-          return acc;
-        }, {})),
+        ...getSkimmerData(),
       };
-      
-      console.log('💾 Auto-saving pool details:', fullData);
       
       try {
         await updatePoolDetails(fullData);
@@ -405,20 +420,32 @@ export const PoolDetailsStep: React.FC = () => {
         console.error('❌ Save failed:', error);
       }
     }, 1000);
-  }, [getValues, selectedFeatures, skimmerCount, updatePoolDetails]);
+  };
 
-  // Watch ALL changes
-  useEffect(() => {
-    const subscription = watch(() => {
-      saveAllData();
-    });
-    return () => subscription.unsubscribe();
-  }, [watch, saveAllData]);
+  // Get dynamic skimmer data
+  const getSkimmerData = () => {
+    const formData = getValues(); // Use getValues() instead of formValues
+    const skimmerData: any = {};
+    for (let i = 0; i < skimmerCount; i++) {
+      const skimmerNum = i + 1;
+      skimmerData[`skimmer${skimmerNum}Functioning`] = formData[`skimmer${skimmerNum}Functioning`] || false;
+      skimmerData[`skimmer${skimmerNum}BasketCondition`] = formData[`skimmer${skimmerNum}BasketCondition`] || '';
+      skimmerData[`skimmer${skimmerNum}LidCondition`] = formData[`skimmer${skimmerNum}LidCondition`] || '';
+      skimmerData[`skimmer${skimmerNum}LidModel`] = formData[`skimmer${skimmerNum}LidModel`] || '';
+    }
+    return skimmerData;
+  };
 
-  // Save when counters change
+  // Add cleanup on unmount
   useEffect(() => {
-    saveAllData();
-  }, [skimmerCount, selectedFeatures]);
+    return () => {
+      // Clear all pending saves on unmount
+      Object.values(fieldSaveTimeouts.current).forEach(timeout => {
+        clearTimeout(timeout);
+      });
+    };
+  }, []);
+
 
   // Mock satellite analysis function
   const analyzeSatelliteImage = async (address: string) => {
@@ -470,14 +497,6 @@ export const PoolDetailsStep: React.FC = () => {
         setValue('poolType', result.poolType);
       }
       
-      // Calculate volume if depths are available
-      const shallowDepth = getValues('shallowEndDepth') || 3;
-      const deepDepth = getValues('deepEndDepth') || 8;
-      const avgDepth = (shallowDepth + deepDepth) / 2;
-      const volume = result.surfaceArea * avgDepth * 7.48;
-      setValue('volume', Math.round(volume));
-      setValue('avgDepth', avgDepth);
-      
       setSatelliteAnalyzed(true);
       setSatelliteAnalysisResult({
         success: true,
@@ -486,9 +505,10 @@ export const PoolDetailsStep: React.FC = () => {
         message: `${result.poolType === 'aboveGround' ? 'Above-ground' : 'In-ground'} pool detected: ${result.length}' x ${result.width}' ${result.shape}`
       });
       
-      // Save the data
-      const values = getValues();
-      await updatePoolDetails(values);
+      // Force a blur save to persist and recalculate
+      setTimeout(() => {
+        handleFieldBlur('satellite-update', getValues());
+      }, 100);
       
       setTimeout(() => setSatelliteAnalysisResult(null), 5000);
     } catch (error) {
@@ -562,7 +582,10 @@ export const PoolDetailsStep: React.FC = () => {
           <View style={styles.typeButtons}>
             <TouchableOpacity
               style={[styles.typeButton, value === 'inground' && styles.typeButtonActive]}
-              onPress={() => onChange('inground')}
+              onPress={() => {
+                onChange('inground');
+                handleFieldBlur('poolType', 'inground');
+              }}
             >
               <Text style={[styles.typeButtonText, value === 'inground' && styles.typeButtonTextActive]}>
                 In-Ground
@@ -570,7 +593,10 @@ export const PoolDetailsStep: React.FC = () => {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.typeButton, value === 'aboveGround' && styles.typeButtonActive]}
-              onPress={() => onChange('aboveGround')}
+              onPress={() => {
+                onChange('aboveGround');
+                handleFieldBlur('poolType', 'aboveGround');
+              }}
             >
               <Text style={[styles.typeButtonText, value === 'aboveGround' && styles.typeButtonTextActive]}>
                 Above Ground
@@ -591,7 +617,10 @@ export const PoolDetailsStep: React.FC = () => {
               <TouchableOpacity
                 key={shape.value}
                 style={[styles.shapeButton, value === shape.value && styles.shapeButtonActive]}
-                onPress={() => onChange(shape.value)}
+                onPress={() => {
+                  onChange(shape.value);
+                  handleFieldBlur('shape', shape.value);
+                }}
               >
                 <Ionicons
                   name={shape.icon as any}
@@ -618,15 +647,15 @@ export const PoolDetailsStep: React.FC = () => {
           <Controller
             control={control}
             name="length"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <ModernInput
+            render={({ field: { onChange, value } }) => (
+              <UncontrolledInput
                 label="Length"
-                value={value ? String(value) : ''}
-                onChangeText={(text) => {
+                initialValue={value ? String(value) : ''}
+                onBlurValue={(text: string) => {
                   const num = parseFloat(text);
                   onChange(isNaN(num) ? undefined : num);
+                  handleFieldBlur('length', num);
                 }}
-                onBlur={() => handleFieldBlur('length', value)}
                 error={errors.length?.message}
                 keyboardType="numeric"
               />
@@ -637,35 +666,16 @@ export const PoolDetailsStep: React.FC = () => {
           <Controller
             control={control}
             name="width"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <ModernInput
+            render={({ field: { onChange, value } }) => (
+              <UncontrolledInput
                 label="Width"
-                value={value ? String(value) : ''}
-                onChangeText={(text) => {
+                initialValue={value ? String(value) : ''}
+                onBlurValue={(text: string) => {
                   const num = parseFloat(text);
                   onChange(isNaN(num) ? undefined : num);
+                  handleFieldBlur('width', num);
                 }}
-                onBlur={() => handleFieldBlur('width', value)}
                 error={errors.width?.message}
-                keyboardType="numeric"
-              />
-            )}
-          />
-        </View>
-        <View style={styles.thirdField}>
-          <Controller
-            control={control}
-            name="avgDepth"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <ModernInput
-                label="Avg Depth"
-                value={value ? String(value) : ''}
-                onChangeText={(text) => {
-                  const num = parseFloat(text);
-                  onChange(isNaN(num) ? undefined : num);
-                }}
-                onBlur={() => handleFieldBlur('avgDepth', value)}
-                error={errors.avgDepth?.message}
                 keyboardType="numeric"
               />
             )}
@@ -679,19 +689,15 @@ export const PoolDetailsStep: React.FC = () => {
           <Controller
             control={control}
             name="shallowEndDepth"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <ModernInput
+            render={({ field: { onChange, value } }) => (
+              <UncontrolledInput
                 label="Shallow End"
-                value={value ? value.toString() : ''}
-                onChangeText={(text) => {
-                  const cleaned = text.replace(/[^0-9.]/g, '');
-                  if (cleaned === '') {
-                    onChange(undefined);
-                  } else {
-                    onChange(parseFloat(cleaned));
-                  }
+                initialValue={value ? String(value) : ''}
+                onBlurValue={(text: string) => {
+                  const num = parseFloat(text);
+                  onChange(isNaN(num) ? undefined : num);
+                  handleFieldBlur('shallowEndDepth', num);
                 }}
-                onBlur={onBlur}
                 keyboardType="numeric"
               />
             )}
@@ -701,19 +707,15 @@ export const PoolDetailsStep: React.FC = () => {
           <Controller
             control={control}
             name="deepEndDepth"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <ModernInput
+            render={({ field: { onChange, value } }) => (
+              <UncontrolledInput
                 label="Deep End"
-                value={value ? value.toString() : ''}
-                onChangeText={(text) => {
-                  const cleaned = text.replace(/[^0-9.]/g, '');
-                  if (cleaned === '') {
-                    onChange(undefined);
-                  } else {
-                    onChange(parseFloat(cleaned));
-                  }
+                initialValue={value ? String(value) : ''}
+                onBlurValue={(text: string) => {
+                  const num = parseFloat(text);
+                  onChange(isNaN(num) ? undefined : num);
+                  handleFieldBlur('deepEndDepth', num);
                 }}
-                onBlur={onBlur}
                 keyboardType="numeric"
               />
             )}
@@ -725,17 +727,17 @@ export const PoolDetailsStep: React.FC = () => {
         <Text style={styles.fieldLabel}>Average Depth (Auto-calculated)</Text>
         <View style={[styles.inputContainer, styles.disabledInput]}>
           <Text style={styles.inputText}>
-            {formValues.avgDepth ? formValues.avgDepth.toFixed(1) : '0.0'}
+            {calculatedValues.avgDepth ? calculatedValues.avgDepth.toFixed(1) : '0.0'}
           </Text>
           <Text style={styles.inputSuffix}>ft</Text>
         </View>
       </View>
       {/* Calculated Volume */}
-      {formValues.volume > 0 && (
+      {calculatedValues.volume > 0 && (
         <View style={styles.volumeDisplay}>
           <Text style={styles.volumeLabel}>Estimated Volume</Text>
           <Text style={styles.volumeValue}>
-            {formValues.volume.toLocaleString()} gallons
+            {calculatedValues.volume.toLocaleString()} gallons
           </Text>
         </View>
       )}
@@ -778,13 +780,16 @@ export const PoolDetailsStep: React.FC = () => {
             key={type.value}
             style={[
               styles.optionButton,
-              watch('surfaceMaterial') === type.value && styles.optionButtonActive
+              getCurrentValue('surfaceMaterial') === type.value && styles.optionButtonActive
             ]}
-            onPress={() => setValue('surfaceMaterial', type.value as any)}
+            onPress={() => {
+              setValue('surfaceMaterial', type.value as any);
+              handleFieldBlur('surfaceMaterial', type.value);
+            }}
           >
             <Text style={[
               styles.optionText,
-              watch('surfaceMaterial') === type.value && styles.optionTextActive
+              getCurrentValue('surfaceMaterial') === type.value && styles.optionTextActive
             ]}>
               {type.label}
             </Text>
@@ -798,17 +803,20 @@ export const PoolDetailsStep: React.FC = () => {
             key={option.value}
             style={[
               styles.conditionOption,
-              watch('surfaceCondition') === option.value && { 
+              getCurrentValue('surfaceCondition') === option.value && { 
                 backgroundColor: option.color + '20',
                 borderColor: option.color 
               },
             ]}
-            onPress={() => setValue('surfaceCondition', option.value as any)}
+            onPress={() => {
+              setValue('surfaceCondition', option.value as any);
+              handleFieldBlur('surfaceCondition', option.value);
+            }}
           >
             <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
             <Text style={[
               styles.conditionLabel,
-              watch('surfaceCondition') === option.value && { 
+              getCurrentValue('surfaceCondition') === option.value && { 
                 color: option.color, 
                 fontWeight: '600' 
               }
@@ -850,11 +858,11 @@ export const PoolDetailsStep: React.FC = () => {
       <View style={styles.aiAnalyzerSection}>
         <Text style={styles.analyzerTitle}>AI Environment Analysis</Text>
         <Text style={styles.analyzerDescription}>
-          Take photos around the pool area. AI will identify:
-          • Tree types and foliage density
-          • Sun exposure patterns
-          • Estimated leaf fall volume
-          • Wind exposure factors
+          {`Take photos around the pool area. AI will identify:
+• Tree types and foliage density
+• Sun exposure patterns
+• Estimated leaf fall volume
+• Wind exposure factors`}
         </Text>
         <AIPhotoAnalyzer
           title="Environment Photos"
@@ -877,7 +885,7 @@ export const PoolDetailsStep: React.FC = () => {
         />
       </View>
       {/* Display AI Results if available */}
-      {watch('environmentAnalysis' as any) && (
+      {getCurrentValue('environmentAnalysis') && (
         <View style={styles.aiResultsCard}>
           <Text style={styles.aiResultsTitle}>Environment Analysis Results</Text>
           {/* Display the analysis results */}
@@ -892,9 +900,7 @@ export const PoolDetailsStep: React.FC = () => {
       <View style={styles.aiAnalyzerSection}>
         <Text style={styles.analyzerTitle}>AI Skimmer Detection</Text>
         <Text style={styles.analyzerDescription}>
-          Take clear photos of each skimmer basket and lid separately.
-          AI will count skimmers and assess their condition.
-          Include photos from directly above each skimmer.
+          {`Take clear photos of each skimmer basket and lid separately. AI will count skimmers and assess their condition. Include photos from directly above each skimmer.`}
         </Text>
         <AIPhotoAnalyzer
           title="Skimmer & Lid Photos"
@@ -920,6 +926,7 @@ export const PoolDetailsStep: React.FC = () => {
               const newCount = Math.max(0, skimmerCount - 1);
               setSkimmerCount(newCount);
               setValue('skimmerCount', newCount);
+              handleFieldBlur('skimmerCount', newCount);
             }}
           >
             <Ionicons name="remove" size={24} color={theme.colors.darkBlue} />
@@ -931,6 +938,7 @@ export const PoolDetailsStep: React.FC = () => {
               const newCount = skimmerCount + 1;
               setSkimmerCount(newCount);
               setValue('skimmerCount', newCount);
+              handleFieldBlur('skimmerCount', newCount);
             }}
           >
             <Ionicons name="add" size={24} color={theme.colors.darkBlue} />
@@ -939,9 +947,8 @@ export const PoolDetailsStep: React.FC = () => {
       </View>
       {/* Dynamic Skimmer Mini-Sections */}
       {Array.from({ length: skimmerCount }).map((_, index) => (
-        <SkimmerMiniSection key={index} index={index} />
+        <SkimmerMiniSection key={index} index={index} handleFieldBlur={handleFieldBlur} />
       ))}
-      
     </>
   ));
   
@@ -976,13 +983,13 @@ export const PoolDetailsStep: React.FC = () => {
             key={material}
             style={[
               styles.optionButton,
-              watch('deckMaterial') === material && styles.optionButtonActive
+              getCurrentValue('deckMaterial') === material && styles.optionButtonActive
             ]}
             onPress={() => setValue('deckMaterial', material)}
           >
             <Text style={[
               styles.optionText,
-              watch('deckMaterial') === material && styles.optionTextActive
+              getCurrentValue('deckMaterial') === material && styles.optionTextActive
             ]}>
               {material.split(' ').map(word => 
                 word.charAt(0).toUpperCase() + word.slice(1)
@@ -999,13 +1006,13 @@ export const PoolDetailsStep: React.FC = () => {
             key={level}
             style={[
               styles.optionButton,
-              watch('deckCleanliness') === level && styles.optionButtonActive
+              getCurrentValue('deckCleanliness') === level && styles.optionButtonActive
             ]}
             onPress={() => setValue('deckCleanliness', level)}
           >
             <Text style={[
               styles.optionText,
-              watch('deckCleanliness') === level && styles.optionTextActive
+              getCurrentValue('deckCleanliness') === level && styles.optionTextActive
             ]}>
               {level.charAt(0).toUpperCase() + level.slice(1)}
             </Text>
@@ -1036,11 +1043,10 @@ export const PoolDetailsStep: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
+        scrollEventThrottle={16}
         maintainVisibleContentPosition={{
           minIndexForVisible: 0,
-          autoscrollToTopThreshold: 0
         }}
-        automaticallyAdjustKeyboardInsets={false}
       >
         {POOL_SECTIONS.map((section) => (
           <View 
