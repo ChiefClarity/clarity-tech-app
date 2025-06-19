@@ -127,10 +127,12 @@ export const ModernInput: React.FC<ModernInputProps> = ({
               icon && styles.inputWithIcon,
               rightIcon && styles.inputWithRightIcon,
               props.multiline && {
-                paddingTop: theme.spacing.sm,
-                paddingBottom: theme.spacing.sm,
+                paddingTop: theme.spacing.md,    // Increased from sm
+                paddingBottom: theme.spacing.md,  // Increased from sm
+                paddingHorizontal: theme.spacing.md, // Ensure horizontal padding
                 minHeight: props.numberOfLines ? props.numberOfLines * 24 : 80,
                 textAlignVertical: 'top' as const,
+                lineHeight: 20, // Better line spacing
               },
             ]}
             value={value}
