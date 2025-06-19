@@ -52,6 +52,32 @@ export const ModernInput: React.FC<ModernInputProps> = ({
 
   const valueStatus = getValueStatus();
 
+  // Add this function to handle input styling
+  const getInputStyle = () => {
+    const baseStyle = [
+      styles.input,
+      icon && styles.inputWithIcon,
+      rightIcon && styles.inputWithRightIcon,
+    ];
+    
+    if (props.multiline) {
+      return [
+        ...baseStyle,
+        {
+          paddingTop: theme.spacing.md,
+          paddingBottom: theme.spacing.md,
+          paddingHorizontal: theme.spacing.md,
+          minHeight: props.numberOfLines ? props.numberOfLines * 24 + 32 : 96,
+          height: 'auto',
+          textAlignVertical: 'top' as const,
+          lineHeight: 22,
+        }
+      ];
+    }
+    
+    return baseStyle;
+  };
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(animatedLabel, {
@@ -122,19 +148,7 @@ export const ModernInput: React.FC<ModernInputProps> = ({
         {icon && <View style={styles.iconLeft}>{icon}</View>}
           <TextInput
             ref={inputRef}
-            style={[
-              styles.input,
-              icon && styles.inputWithIcon,
-              rightIcon && styles.inputWithRightIcon,
-              props.multiline && {
-                paddingTop: theme.spacing.md,    // Increased from sm
-                paddingBottom: theme.spacing.md,  // Increased from sm
-                paddingHorizontal: theme.spacing.md, // Ensure horizontal padding
-                minHeight: props.numberOfLines ? props.numberOfLines * 24 : 80,
-                textAlignVertical: 'top' as const,
-                lineHeight: 20, // Better line spacing
-              },
-            ]}
+            style={getInputStyle()}
             value={value}
             onFocus={(e) => {
               setIsFocused(true);
@@ -208,6 +222,7 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
     fontSize: theme.typography.body.fontSize,
     color: theme.colors.darkBlue,
+    backgroundColor: 'transparent',
     ...Platform.select({
       web: {
         // Remove ALL browser styles
