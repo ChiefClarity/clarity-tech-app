@@ -4,9 +4,10 @@ import {
   ScrollView,
   Text,
   TouchableOpacity,
-  StyleSheet
+  StyleSheet,
+  Platform
 } from 'react-native';
-import { useForm, Controller, useFormContext, FormProvider, useWatch, Control, UseFormSetValue, UseFormGetValues, FieldErrors } from 'react-hook-form';
+import { useForm, Controller, useFormContext, FormProvider, useWatch, Control, UseFormSetValue, UseFormGetValues, FieldErrors, UseFormTrigger } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Ionicons } from '@expo/vector-icons';
@@ -662,24 +663,43 @@ const SurfaceSection = memo(({
     />
     
     {useWatch({ control, name: 'surfaceStains' }) && (
-      <Controller
-        control={control}
-        name="stainTypes"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <ModernInput
-            label="Describe stains"
-            value={value || ''}
-            onChangeText={onChange}
-            onBlur={() => {
-              onBlur();
-              handleFieldBlur('stainTypes', value);
-            }}
-            multiline
-            numberOfLines={3}
-            style={{ minHeight: 80 }}
-          />
-        )}
-      />
+      <View style={Platform.select({
+        web: {
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: '#E2E8F0',
+          backgroundColor: '#FFFFFF',
+          padding: 4,
+        },
+        default: {}
+      })}>
+        <Controller
+          control={control}
+          name="stainTypes"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <ModernInput
+              label="Describe stains"
+              value={value || ''}
+              onChangeText={onChange}
+              onBlur={() => {
+                onBlur();
+                handleFieldBlur('stainTypes', value);
+              }}
+              multiline
+              numberOfLines={3}
+              style={Platform.select({
+                web: {
+                  minHeight: 80,
+                  resize: 'vertical',
+                  fontFamily: 'system-ui, -apple-system, sans-serif',
+                  lineHeight: 1.5,
+                },
+                default: { minHeight: 80 }
+              })}
+            />
+          )}
+        />
+      </View>
     )}
   </View>
 ));
@@ -1092,7 +1112,7 @@ export const PoolDetailsStep: React.FC = () => {
     },
   });
   
-  const { control, handleSubmit, reset, setValue, getValues, formState: { errors } } = formMethods;
+  const { control, handleSubmit, reset, setValue, getValues, trigger, formState: { errors } } = formMethods;
   
   console.log('3. Form initialized:', !!control);
   console.log('4. Form methods:', Object.keys(formMethods));
@@ -1144,10 +1164,17 @@ export const PoolDetailsStep: React.FC = () => {
   
   // Sync features from form state to local state
   useEffect(() => {
-    if (watchedFeatures && Array.isArray(watchedFeatures) && watchedFeatures.length > 0) {
+    if (watchedFeatures && Array.isArray(watchedFeatures)) {
+      // CRITICAL: Remove length check - empty array is valid state
       setSelectedFeatures(watchedFeatures);
     }
   }, [watchedFeatures]);
+  
+  // Debug: Verify feature synchronization
+  useEffect(() => {
+    console.log('[FEATURES DEBUG] watchedFeatures:', watchedFeatures);
+    console.log('[FEATURES DEBUG] selectedFeatures:', selectedFeatures);
+  }, [watchedFeatures, selectedFeatures]);
   
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => {
@@ -1339,7 +1366,7 @@ export const PoolDetailsStep: React.FC = () => {
         poolType: result.poolType || poolType
       };
 
-      // Update each field with validation
+      // Batch update values with proper validation flags
       Object.entries(newValues).forEach(([field, value]) => {
         setValue(field as keyof PoolDetailsData, value, { 
           shouldValidate: true, 
@@ -1348,8 +1375,16 @@ export const PoolDetailsStep: React.FC = () => {
         });
       });
 
+      // Immediate UI update using trigger for form validation
+      await trigger(['length', 'width', 'shape', 'surfaceArea']);
+      
       // Force recalculation
       setCalcTrigger(prev => prev + 1);
+      
+      // Guaranteed UI update using requestAnimationFrame
+      requestAnimationFrame(() => {
+        console.log('[SATELLITE] Updated values:', getValues());
+      });
       
       setSatelliteAnalyzed(true);
       setSatelliteAnalysisResult({
