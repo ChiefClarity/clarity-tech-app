@@ -734,7 +734,9 @@ const SkimmersSection = memo(({
         index={index} 
         handleFieldBlur={handleFieldBlur} 
         control={control} 
-        setValue={setValue} 
+        setValue={setValue}
+        basketCondition={skimmerWatches[`basket${index}`]}
+        lidCondition={skimmerWatches[`lid${index}`]}
       />
     ))}
   </View>
@@ -827,10 +829,137 @@ const DeckSection = memo(({
   </View>
 ));
 
+// Skimmer mini-section component moved outside to prevent initialization issues
+interface SkimmerMiniSectionProps {
+  index: number;
+  handleFieldBlur: (field: string, value: any) => void;
+  control: any;
+  setValue: any;
+  basketCondition?: string;
+  lidCondition?: string;
+}
 
+const SkimmerMiniSection: React.FC<SkimmerMiniSectionProps> = memo(({ 
+  index, 
+  handleFieldBlur,
+  control,
+  setValue,
+  basketCondition = '',
+  lidCondition = ''
+}) => {
+  return (
+    <View style={styles.skimmerMiniSection}>
+      <Text style={styles.miniSectionTitle}>Skimmer #{index + 1}</Text>
+      
+      <Controller
+        control={control}
+        name={`skimmer${index + 1}Functioning` as any}
+        render={({ field: { onChange, value } }) => (
+          <TouchableOpacity
+            style={styles.checkboxRow}
+            onPress={() => onChange(!value)}
+          >
+            <View style={[styles.checkbox, value && styles.checkboxChecked]}>
+              {value && <Ionicons name="checkmark" size={16} color="white" />}
+            </View>
+            <Text style={styles.checkboxLabel}>Functioning properly</Text>
+          </TouchableOpacity>
+        )}
+      />
+      
+      <Text style={styles.fieldLabel}>Basket Condition</Text>
+      <View style={styles.conditionGrid}>
+        {CONDITION_OPTIONS.map((option) => (
+          <TouchableOpacity
+            key={option.value}
+            style={[
+              styles.conditionOption,
+              basketCondition === option.value && { 
+                backgroundColor: option.color + '20',
+                borderColor: option.color 
+              },
+            ]}
+            onPress={() => {
+              const fieldName = `skimmer${index + 1}BasketCondition`;
+              setValue(fieldName, option.value);
+              handleFieldBlur(fieldName, option.value);
+            }}
+          >
+            <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
+            <Text style={[
+              styles.conditionLabel,
+              basketCondition === option.value && { 
+                color: option.color, 
+                fontWeight: '600' 
+              }
+            ]}>
+              {option.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <Text style={styles.fieldLabel}>Lid Condition</Text>
+      <View style={styles.conditionGrid}>
+        {CONDITION_OPTIONS.map((option) => (
+          <TouchableOpacity
+            key={option.value}
+            style={[
+              styles.conditionOption,
+              lidCondition === option.value && { 
+                backgroundColor: option.color + '20',
+                borderColor: option.color 
+              },
+            ]}
+            onPress={() => {
+              const fieldName = `skimmer${index + 1}LidCondition`;
+              setValue(fieldName, option.value);
+              handleFieldBlur(fieldName, option.value);
+            }}
+          >
+            <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
+            <Text style={[
+              styles.conditionLabel,
+              lidCondition === option.value && { 
+                color: option.color, 
+                fontWeight: '600' 
+              }
+            ]}>
+              {option.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <Controller
+        control={control}
+        name={`skimmer${index + 1}LidModel` as any}
+        render={({ field: { onChange, value } }) => (
+          <UncontrolledInput
+            label="Lid Model #"
+            initialValue={value || ''}
+            onBlurValue={(text: string) => {
+              onChange(text);
+              handleFieldBlur(`skimmer${index + 1}LidModel`, text);
+            }}
+            autoCorrect={false}
+            autoCapitalize="none"
+            returnKeyType="done"
+            blurOnSubmit={true}
+          />
+        )}
+      />
+    </View>
+  );
+});
 
 export const PoolDetailsStep: React.FC = () => {
-  const { session, updatePoolDetails, nextStep } = useOnboarding();
+  // Add safety check for context availability
+  const onboardingContext = useOnboarding();
+  if (!onboardingContext) {
+    console.error('useOnboarding hook not available');
+    return <View><Text>Loading...</Text></View>;
+  }
+  
+  const { session, updatePoolDetails, nextStep } = onboardingContext;
   const [expandedSections, setExpandedSections] = useState<string[]>([
     'size-shape',
     'surface',
@@ -881,13 +1010,19 @@ export const PoolDetailsStep: React.FC = () => {
   
   const { control, handleSubmit, reset, setValue, getValues, formState: { errors } } = formMethods;
   
-  // Watch ONLY fields that need visual updates
-  const watchedFields = useWatch({
-    control,
-    name: ['poolType', 'shape', 'surfaceMaterial', 'surfaceCondition', 'deckMaterial', 'deckCleanliness']
-  });
+  // Safety check for form methods
+  if (!control || !setValue || !getValues) {
+    console.error('Form methods not properly initialized');
+    return <View><Text>Form loading...</Text></View>;
+  }
   
-  const [poolType, shape, surfaceMaterial, surfaceCondition, deckMaterial, deckCleanliness] = watchedFields;
+  // Watch ONLY fields that need visual updates - individual watches to prevent destructuring issues
+  const poolType = useWatch({ control, name: 'poolType' }) || '';
+  const shape = useWatch({ control, name: 'shape' }) || '';
+  const surfaceMaterial = useWatch({ control, name: 'surfaceMaterial' }) || '';
+  const surfaceCondition = useWatch({ control, name: 'surfaceCondition' }) || '';
+  const deckMaterial = useWatch({ control, name: 'deckMaterial' }) || '';
+  const deckCleanliness = useWatch({ control, name: 'deckCleanliness' }) || '';
   
   // Add field save timeout ref and animation frame ref
   const fieldSaveTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
@@ -1020,131 +1155,31 @@ export const PoolDetailsStep: React.FC = () => {
     };
   }, []);
 
-  // Memoized skimmer mini-section component with proper state management
-  const SkimmerMiniSection = memo(({ 
-    index, 
-    handleFieldBlur,
-    control,
-    setValue
-  }: { 
-    index: number; 
-    handleFieldBlur: (field: string, value: any) => void;
-    control: any;
-    setValue: any;
-  }) => {
-    const basketCondition = useWatch({
-      control,
-      name: `skimmer${index + 1}BasketCondition`
-    });
-    
-    const lidCondition = useWatch({
-      control,
-      name: `skimmer${index + 1}LidCondition`
-    });
-    
-    return (
-      <View style={styles.skimmerMiniSection}>
-        <Text style={styles.miniSectionTitle}>Skimmer #{index + 1}</Text>
-        
-        <Controller
-          control={control}
-          name={`skimmer${index + 1}Functioning` as any}
-          render={({ field: { onChange, value } }) => (
-            <TouchableOpacity
-              style={styles.checkboxRow}
-              onPress={() => onChange(!value)}
-            >
-              <View style={[styles.checkbox, value && styles.checkboxChecked]}>
-                {value && <Ionicons name="checkmark" size={16} color="white" />}
-              </View>
-              <Text style={styles.checkboxLabel}>Functioning properly</Text>
-            </TouchableOpacity>
-          )}
-        />
-        
-        <Text style={styles.fieldLabel}>Basket Condition</Text>
-        <View style={styles.conditionGrid}>
-          {CONDITION_OPTIONS.map((option) => (
-            <TouchableOpacity
-              key={option.value}
-              style={[
-                styles.conditionOption,
-                basketCondition === option.value && { 
-                  backgroundColor: option.color + '20',
-                  borderColor: option.color 
-                },
-              ]}
-              onPress={() => {
-                const fieldName = `skimmer${index + 1}BasketCondition`;
-                setValue(fieldName, option.value);
-                handleFieldBlur(fieldName, option.value);
-              }}
-            >
-              <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
-              <Text style={[
-                styles.conditionLabel,
-                basketCondition === option.value && { 
-                  color: option.color, 
-                  fontWeight: '600' 
-                }
-              ]}>
-                {option.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <Text style={styles.fieldLabel}>Lid Condition</Text>
-        <View style={styles.conditionGrid}>
-          {CONDITION_OPTIONS.map((option) => (
-            <TouchableOpacity
-              key={option.value}
-              style={[
-                styles.conditionOption,
-                lidCondition === option.value && { 
-                  backgroundColor: option.color + '20',
-                  borderColor: option.color 
-                },
-              ]}
-              onPress={() => {
-                const fieldName = `skimmer${index + 1}LidCondition`;
-                setValue(fieldName, option.value);
-                handleFieldBlur(fieldName, option.value);
-              }}
-            >
-              <View style={[styles.conditionDot, { backgroundColor: option.color }]} />
-              <Text style={[
-                styles.conditionLabel,
-                lidCondition === option.value && { 
-                  color: option.color, 
-                  fontWeight: '600' 
-                }
-              ]}>
-                {option.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <Controller
-          control={control}
-          name={`skimmer${index + 1}LidModel` as any}
-          render={({ field: { onChange, value } }) => (
-            <UncontrolledInput
-              label="Lid Model #"
-              initialValue={value || ''}
-              onBlurValue={(text: string) => {
-                onChange(text);
-                handleFieldBlur(`skimmer${index + 1}LidModel`, text);
-              }}
-              autoCorrect={false}
-              autoCapitalize="none"
-              returnKeyType="done"
-              blurOnSubmit={true}
-            />
-          )}
-        />
-      </View>
-    );
-  });
+  // Watch skimmer values individually (max 10 skimmers for safety)
+  const skimmer1Basket = useWatch({ control, name: 'skimmer1BasketCondition' }) || '';
+  const skimmer1Lid = useWatch({ control, name: 'skimmer1LidCondition' }) || '';
+  const skimmer2Basket = useWatch({ control, name: 'skimmer2BasketCondition' }) || '';
+  const skimmer2Lid = useWatch({ control, name: 'skimmer2LidCondition' }) || '';
+  const skimmer3Basket = useWatch({ control, name: 'skimmer3BasketCondition' }) || '';
+  const skimmer3Lid = useWatch({ control, name: 'skimmer3LidCondition' }) || '';
+  const skimmer4Basket = useWatch({ control, name: 'skimmer4BasketCondition' }) || '';
+  const skimmer4Lid = useWatch({ control, name: 'skimmer4LidCondition' }) || '';
+  const skimmer5Basket = useWatch({ control, name: 'skimmer5BasketCondition' }) || '';
+  const skimmer5Lid = useWatch({ control, name: 'skimmer5LidCondition' }) || '';
+  
+  // Create watches array from individual hooks
+  const skimmerWatches = useMemo(() => ({
+    basket0: skimmer1Basket,
+    lid0: skimmer1Lid,
+    basket1: skimmer2Basket,
+    lid1: skimmer2Lid,
+    basket2: skimmer3Basket,
+    lid2: skimmer3Lid,
+    basket3: skimmer4Basket,
+    lid3: skimmer4Lid,
+    basket4: skimmer5Basket,
+    lid4: skimmer5Lid,
+  }), [skimmer1Basket, skimmer1Lid, skimmer2Basket, skimmer2Lid, skimmer3Basket, skimmer3Lid, skimmer4Basket, skimmer4Lid, skimmer5Basket, skimmer5Lid]);
 
   // Mock satellite analysis function
   const analyzeSatelliteImage = async (address: string) => {
