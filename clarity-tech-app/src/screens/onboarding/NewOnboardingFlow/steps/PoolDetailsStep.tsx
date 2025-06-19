@@ -449,6 +449,7 @@ const SizeShapeSection = memo(({
           name="length"
           render={({ field: { onChange, value } }) => (
             <UncontrolledInput
+              key={`length-${value || 0}`} // FORCE RE-RENDER ON VALUE CHANGE
               label="Length"
               initialValue={value ? String(value) : ''}
               onBlurValue={(text: string) => {
@@ -468,6 +469,7 @@ const SizeShapeSection = memo(({
           name="width"
           render={({ field: { onChange, value } }) => (
             <UncontrolledInput
+              key={`width-${value || 0}`} // FORCE RE-RENDER ON VALUE CHANGE
               label="Width"
               initialValue={value ? String(value) : ''}
               onBlurValue={(text: string) => {
@@ -670,10 +672,7 @@ const SurfaceSection = memo(({
           <ModernInput
             label="Describe stains"
             value={value || ''}
-            onChangeText={(text) => {
-              onChange(text);
-              console.log('[STAINS] Text changed:', text);
-            }}
+            onChangeText={onChange}
             onBlur={() => {
               onBlur();
               handleFieldBlur('stainTypes', value || '');
@@ -681,6 +680,9 @@ const SurfaceSection = memo(({
             multiline
             numberOfLines={3}
             textAlignVertical="top"
+            style={{
+              marginTop: theme.spacing.sm,
+            }}
           />
         )}
       />
@@ -1258,7 +1260,7 @@ export const PoolDetailsStep: React.FC = () => {
         surfaceArea: metrics.surfaceArea,
         poolType: allValues.poolType,
         type: allValues.poolType,
-        features: selectedFeatures,
+        features: allValues.features || [], // USE FORM STATE, NOT LOCAL STATE
         skimmerCount,
         ...getSkimmerData(),
       };
@@ -1270,7 +1272,7 @@ export const PoolDetailsStep: React.FC = () => {
         console.error('❌ Save failed:', error);
       }
     }, DEBOUNCE_DELAY); // Enterprise-grade debounce timing
-  }, [getValues, selectedFeatures, skimmerCount, updatePoolDetails]);
+  }, [getValues, skimmerCount, updatePoolDetails]);
 
 
   // Add cleanup on unmount
