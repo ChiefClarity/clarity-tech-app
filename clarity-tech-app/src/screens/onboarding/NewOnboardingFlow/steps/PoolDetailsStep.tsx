@@ -105,6 +105,21 @@ class PoolDetailsErrorBoundary extends Component<
   }
 }
 
+// Error Fallback Component
+const PoolDetailsErrorFallback: React.FC<{ error?: Error; retry?: () => void }> = ({ error, retry }) => (
+  <View style={styles.errorContainer}>
+    <Text style={styles.errorText}>Pool Details Error</Text>
+    <Text style={styles.errorDetails}>
+      {error?.message || 'An unexpected error occurred while loading pool details.'}
+    </Text>
+    {retry && (
+      <TouchableOpacity style={styles.retryButton} onPress={retry}>
+        <Text style={styles.retryText}>Retry</Text>
+      </TouchableOpacity>
+    )}
+  </View>
+);
+
 // Pure function for pool calculations with proper typing
 const calculatePoolMetrics = (values: Partial<PoolDetailsData>): PoolMetrics => {
   const { length, width, deepEndDepth, shallowEndDepth, shape } = values;
@@ -1040,6 +1055,14 @@ const SkimmerMiniSection: React.FC<SkimmerMiniSectionProps> = memo(({
 });
 
 export const PoolDetailsStep: React.FC = () => {
+  console.log('=== DIAGNOSTIC START ===');
+  console.log('1. Component rendering');
+  console.log('2. Hooks available:', {
+    useOnboarding: typeof useOnboarding,
+    useForm: typeof useForm,
+    useWatch: typeof useWatch
+  });
+  
   // Add safety check for context availability
   const onboardingContext = useOnboarding();
   if (!onboardingContext) {
@@ -1098,6 +1121,9 @@ export const PoolDetailsStep: React.FC = () => {
   
   const { control, handleSubmit, reset, setValue, getValues, formState: { errors } } = formMethods;
   
+  console.log('3. Form initialized:', !!control);
+  console.log('4. Form methods:', Object.keys(formMethods));
+  
   // Safety check for form methods
   if (!control || !setValue || !getValues) {
     console.error('Form methods not properly initialized');
@@ -1105,12 +1131,19 @@ export const PoolDetailsStep: React.FC = () => {
   }
   
   // Watch ONLY fields that need visual updates - individual watches to prevent destructuring issues
+  console.log('5. About to call useWatch');
   const poolType = useWatch({ control, name: 'poolType' }) || '';
+  console.log('5a. poolType watch successful');
   const shape = useWatch({ control, name: 'shape' }) || '';
+  console.log('5b. shape watch successful');
   const surfaceMaterial = useWatch({ control, name: 'surfaceMaterial' }) || '';
+  console.log('5c. surfaceMaterial watch successful');
   const surfaceCondition = useWatch({ control, name: 'surfaceCondition' }) || '';
+  console.log('5d. surfaceCondition watch successful');
   const deckMaterial = useWatch({ control, name: 'deckMaterial' }) || '';
+  console.log('5e. deckMaterial watch successful');
   const deckCleanliness = useWatch({ control, name: 'deckCleanliness' }) || '';
+  console.log('5f. deckCleanliness watch successful');
   
   // Add field save timeout ref and animation frame ref
   const fieldSaveTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
@@ -1244,8 +1277,11 @@ export const PoolDetailsStep: React.FC = () => {
   }, []);
 
   // Watch skimmer values individually (max skimmers defined by constant)
+  console.log('6. About to call skimmer useWatch hooks');
   const skimmer1Basket = useWatch({ control, name: 'skimmer1BasketCondition' }) || '';
+  console.log('6a. skimmer1Basket watch successful');
   const skimmer1Lid = useWatch({ control, name: 'skimmer1LidCondition' }) || '';
+  console.log('6b. skimmer1Lid watch successful');
   const skimmer2Basket = useWatch({ control, name: 'skimmer2BasketCondition' }) || '';
   const skimmer2Lid = useWatch({ control, name: 'skimmer2LidCondition' }) || '';
   const skimmer3Basket = useWatch({ control, name: 'skimmer3BasketCondition' }) || '';
@@ -1254,6 +1290,7 @@ export const PoolDetailsStep: React.FC = () => {
   const skimmer4Lid = useWatch({ control, name: 'skimmer4LidCondition' }) || '';
   const skimmer5Basket = useWatch({ control, name: 'skimmer5BasketCondition' }) || '';
   const skimmer5Lid = useWatch({ control, name: 'skimmer5LidCondition' }) || '';
+  console.log('6c. All skimmer watches successful');
   
   // Create watches array from individual hooks
   const skimmerWatches = useMemo(() => ({
@@ -1344,8 +1381,10 @@ export const PoolDetailsStep: React.FC = () => {
   };
   
   
+  console.log('7. About to render component');
+  
   return (
-    <PoolDetailsErrorBoundary>
+    <PoolDetailsErrorBoundary fallback={<PoolDetailsErrorFallback />}>
       <FormProvider {...formMethods}>
         <PerformanceMonitor />
         <View style={styles.container}>
@@ -2037,7 +2076,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.error,
     textAlign: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  errorDetails: {
+    fontSize: theme.typography.body.fontSize,
+    color: theme.colors.gray,
+    textAlign: 'center',
     marginBottom: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.lg,
   },
   retryButton: {
     backgroundColor: theme.colors.blueGreen,
