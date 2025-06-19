@@ -661,7 +661,7 @@ const SurfaceSection = memo(({
       )}
     />
     
-    {getValues('surfaceStains') && (
+    {useWatch({ control, name: 'surfaceStains' }) && (
       <Controller
         control={control}
         name="stainTypes"
