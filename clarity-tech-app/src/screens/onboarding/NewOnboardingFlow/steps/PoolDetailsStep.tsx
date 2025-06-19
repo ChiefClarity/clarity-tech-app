@@ -1153,7 +1153,7 @@ export const PoolDetailsStep: React.FC = () => {
   const calculatedValues = useMemo(() => {
     const values = getValues();
     return calculatePoolMetrics(values);
-  }, [calcTrigger]);
+  }, [getValues, calcTrigger]);
   
   // Load existing data
   useEffect(() => {
@@ -1175,6 +1175,20 @@ export const PoolDetailsStep: React.FC = () => {
         return [...prev, sectionId];
       }
     });
+  };
+  
+  // Get dynamic skimmer data - defined before functions that use it
+  const getSkimmerData = () => {
+    const formData = getValues(); // Use getValues() instead of formValues
+    const skimmerData: any = {};
+    for (let i = 0; i < skimmerCount; i++) {
+      const skimmerNum = i + 1;
+      skimmerData[`skimmer${skimmerNum}Functioning`] = formData[`skimmer${skimmerNum}Functioning`] || false;
+      skimmerData[`skimmer${skimmerNum}BasketCondition`] = formData[`skimmer${skimmerNum}BasketCondition`] || '';
+      skimmerData[`skimmer${skimmerNum}LidCondition`] = formData[`skimmer${skimmerNum}LidCondition`] || '';
+      skimmerData[`skimmer${skimmerNum}LidModel`] = formData[`skimmer${skimmerNum}LidModel`] || '';
+    }
+    return skimmerData;
   };
   
   const onSubmit = async (data: PoolDetailsData) => {
@@ -1250,21 +1264,8 @@ export const PoolDetailsStep: React.FC = () => {
         console.error('❌ Save failed:', error);
       }
     }, DEBOUNCE_DELAY); // Enterprise-grade debounce timing
-  }, [getValues, selectedFeatures, skimmerCount, updatePoolDetails, getSkimmerData]);
+  }, [getValues, selectedFeatures, skimmerCount, updatePoolDetails]);
 
-  // Get dynamic skimmer data
-  const getSkimmerData = () => {
-    const formData = getValues(); // Use getValues() instead of formValues
-    const skimmerData: any = {};
-    for (let i = 0; i < skimmerCount; i++) {
-      const skimmerNum = i + 1;
-      skimmerData[`skimmer${skimmerNum}Functioning`] = formData[`skimmer${skimmerNum}Functioning`] || false;
-      skimmerData[`skimmer${skimmerNum}BasketCondition`] = formData[`skimmer${skimmerNum}BasketCondition`] || '';
-      skimmerData[`skimmer${skimmerNum}LidCondition`] = formData[`skimmer${skimmerNum}LidCondition`] || '';
-      skimmerData[`skimmer${skimmerNum}LidModel`] = formData[`skimmer${skimmerNum}LidModel`] || '';
-    }
-    return skimmerData;
-  };
 
   // Add cleanup on unmount
   useEffect(() => {
@@ -1305,6 +1306,7 @@ export const PoolDetailsStep: React.FC = () => {
     basket4: skimmer5Basket,
     lid4: skimmer5Lid,
   }), [skimmer1Basket, skimmer1Lid, skimmer2Basket, skimmer2Lid, skimmer3Basket, skimmer3Lid, skimmer4Basket, skimmer4Lid, skimmer5Basket, skimmer5Lid]);
+
 
   // Mock satellite analysis function
   const analyzeSatelliteImage = async (address: string) => {
