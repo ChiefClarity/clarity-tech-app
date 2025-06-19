@@ -663,43 +663,27 @@ const SurfaceSection = memo(({
     />
     
     {useWatch({ control, name: 'surfaceStains' }) && (
-      <View style={Platform.select({
-        web: {
-          borderRadius: 8,
-          borderWidth: 1,
-          borderColor: '#E2E8F0',
-          backgroundColor: '#FFFFFF',
-          padding: 4,
-        },
-        default: {}
-      })}>
-        <Controller
-          control={control}
-          name="stainTypes"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <ModernInput
-              label="Describe stains"
-              value={value || ''}
-              onChangeText={onChange}
-              onBlur={() => {
-                onBlur();
-                handleFieldBlur('stainTypes', value);
-              }}
-              multiline
-              numberOfLines={3}
-              style={Platform.select({
-                web: {
-                  minHeight: 80,
-                  resize: 'vertical',
-                  fontFamily: 'system-ui, -apple-system, sans-serif',
-                  lineHeight: 1.5,
-                },
-                default: { minHeight: 80 }
-              })}
-            />
-          )}
-        />
-      </View>
+      <Controller
+        control={control}
+        name="stainTypes"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <ModernInput
+            label="Describe stains"
+            value={value || ''}
+            onChangeText={(text) => {
+              onChange(text);
+              console.log('[STAINS] Text changed:', text);
+            }}
+            onBlur={() => {
+              onBlur();
+              handleFieldBlur('stainTypes', value || '');
+            }}
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+          />
+        )}
+      />
     )}
   </View>
 ));
@@ -1219,12 +1203,25 @@ export const PoolDetailsStep: React.FC = () => {
   };
   
   const toggleFeature = (featureId: string) => {
-    const updated = selectedFeatures.includes(featureId)
-      ? selectedFeatures.filter(f => f !== featureId)
-      : [...selectedFeatures, featureId];
+    // Get current features from form state, not local state
+    const currentFeatures = getValues('features') || [];
+    const updated = currentFeatures.includes(featureId)
+      ? currentFeatures.filter(f => f !== featureId)
+      : [...currentFeatures, featureId];
+    
+    // Update form state FIRST
+    setValue('features', updated, { 
+      shouldValidate: true,
+      shouldDirty: true 
+    });
+    
+    // Then update local state
     setSelectedFeatures(updated);
-    setValue('features', updated);
+    
+    // Force immediate save
     handleFieldBlur('features', updated);
+    
+    console.log('[FEATURES] Toggled:', featureId, 'Updated:', updated);
   };
 
   // Optimized auto-save with requestAnimationFrame
@@ -1357,34 +1354,37 @@ export const PoolDetailsStep: React.FC = () => {
     try {
       const result = await analyzeSatelliteImage(customerAddress);
       
-      // Auto-populate fields with proper form update
-      const newValues = {
+      // CRITICAL: Update values with proper form state management
+      const updates = {
         shape: result.shape,
         length: result.length,
         width: result.width,
         surfaceArea: result.surfaceArea,
         poolType: result.poolType || poolType
       };
-
-      // Batch update values with proper validation flags
-      Object.entries(newValues).forEach(([field, value]) => {
+      
+      // Batch update all values
+      Object.entries(updates).forEach(([field, value]) => {
         setValue(field as keyof PoolDetailsData, value, { 
           shouldValidate: true, 
           shouldDirty: true,
           shouldTouch: true 
         });
       });
-
-      // Immediate UI update using trigger for form validation
-      await trigger(['length', 'width', 'shape', 'surfaceArea']);
       
-      // Force recalculation
-      setCalcTrigger(prev => prev + 1);
-      
-      // Guaranteed UI update using requestAnimationFrame
-      requestAnimationFrame(() => {
-        console.log('[SATELLITE] Updated values:', getValues());
+      // CRITICAL: Force form to re-render by resetting with current values
+      const allValues = getValues();
+      reset({
+        ...allValues,
+        ...updates
+      }, {
+        keepValues: false,
+        keepDirty: true,
+        keepErrors: true
       });
+      
+      // Force calculation update
+      setCalcTrigger(prev => prev + 1);
       
       setSatelliteAnalyzed(true);
       setSatelliteAnalysisResult({
@@ -1394,9 +1394,11 @@ export const PoolDetailsStep: React.FC = () => {
         message: `${result.poolType === 'aboveGround' ? 'Above-ground' : 'In-ground'} pool detected: ${result.length}' x ${result.width}' ${result.shape}`
       });
       
-      // Force a blur save to persist and recalculate
+      console.log('[SATELLITE] Analysis complete:', updates);
+      
+      // Auto-save after short delay
       setTimeout(() => {
-        handleFieldBlur('satellite-update', getValues());
+        handleFieldBlur('satellite-analysis', allValues);
       }, 100);
       
       setTimeout(() => setSatelliteAnalysisResult(null), 5000);

@@ -7,6 +7,7 @@ import {
   Animated,
   TouchableOpacity,
   TextInputProps,
+  Platform,
 } from 'react-native';
 import { theme } from '../../styles/theme';
 
@@ -125,6 +126,12 @@ export const ModernInput: React.FC<ModernInputProps> = ({
               styles.input,
               icon && styles.inputWithIcon,
               rightIcon && styles.inputWithRightIcon,
+              props.multiline && {
+                paddingTop: theme.spacing.sm,
+                paddingBottom: theme.spacing.sm,
+                minHeight: props.numberOfLines ? props.numberOfLines * 24 : 80,
+                textAlignVertical: 'top' as const,
+              },
             ]}
             value={value}
             onFocus={(e) => {
@@ -175,21 +182,46 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.xl,
     backgroundColor: theme.colors.white,
     position: 'relative',
-    overflow: 'visible', // Allow label to show outside bounds
-    minHeight: 64, // Increased from 56 to provide more space
-    paddingTop: 20, // More space at top for floated label
+    overflow: 'visible',
+    minHeight: 64,
+    paddingTop: 20,
     paddingBottom: 8,
+    // Web-specific: Remove ALL focus styles
+    ...Platform.select({
+      web: {
+        // Remove focus outline
+        '&:focus-within': {
+          outline: 'none',
+          boxShadow: 'none',
+        },
+      },
+      default: {},
+    }),
   },
   input: {
     flex: 1,
-    height: 36, // Reduced to fit within container with padding
+    height: 36,
     paddingHorizontal: theme.spacing.md,
     paddingTop: 0,
     paddingBottom: 0,
     fontSize: theme.typography.body.fontSize,
     color: theme.colors.darkBlue,
-    // @ts-ignore - Web-specific style to remove browser outline
-    outlineStyle: 'none',
+    ...Platform.select({
+      web: {
+        // Remove ALL browser styles
+        outline: 'none !important' as any,
+        outlineWidth: '0 !important' as any,
+        outlineOffset: '0 !important' as any,
+        boxShadow: 'none !important' as any,
+        border: 'none !important' as any,
+        WebkitAppearance: 'none' as any,
+        MozAppearance: 'none' as any,
+        // Ensure proper text rendering
+        WebkitFontSmoothing: 'antialiased' as any,
+        MozOsxFontSmoothing: 'grayscale' as any,
+      },
+      default: {},
+    }),
   },
   inputWithIcon: {
     paddingLeft: 48,
