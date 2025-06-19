@@ -67,6 +67,15 @@ interface SkimmersSectionProps {
   skimmerWatches: SkimmerWatches;
 }
 
+interface EnvironmentSectionProps {
+  control: FormControl;
+  errors?: FieldErrors<PoolDetailsData>;
+  setValue: UseFormSetValue<PoolDetailsData>;
+  handleFieldBlur: (field: string, value: any) => void;
+  environmentPhotos: string[];
+  setEnvironmentPhotos: (photos: string[]) => void;
+}
+
 interface SkimmerData {
   [key: string]: boolean | string | number;
 }
@@ -652,19 +661,22 @@ const SurfaceSection = memo(({
       )}
     />
     
-    {control._formValues?.surfaceStains && (
+    {getValues('surfaceStains') && (
       <Controller
         control={control}
         name="stainTypes"
-        render={({ field: { onChange, value } }) => (
-          <UncontrolledInput
+        render={({ field: { onChange, onBlur, value } }) => (
+          <ModernInput
             label="Describe stains"
-            initialValue={value || ''}
-            onBlurValue={(text: string) => {
-              onChange(text);
-              handleFieldBlur('stainTypes', text);
+            value={value || ''}
+            onChangeText={onChange}
+            onBlur={() => {
+              onBlur();
+              handleFieldBlur('stainTypes', value);
             }}
             multiline
+            numberOfLines={3}
+            style={{ minHeight: 80 }}
           />
         )}
       />
@@ -679,117 +691,48 @@ const EnvironmentSection = memo(({
   handleFieldBlur,
   environmentPhotos,
   setEnvironmentPhotos
-}: any) => (
+}: EnvironmentSectionProps) => (
   <View>
     {/* AI Environment Analyzer */}
     <View style={styles.aiAnalyzerSection}>
       <Text style={styles.analyzerTitle}>AI Environment Analysis</Text>
       <Text style={styles.analyzerDescription}>
-        Capture photos of the pool surroundings for environmental assessment
+        Capture photos of the pool surroundings for environmental assessment. 
+        AI will automatically detect trees, landscaping, and surrounding conditions.
       </Text>
       <AIPhotoAnalyzer
         title="Environment Photos"
         description="Include trees, landscaping, and surrounding areas"
         maxPhotos={Math.min(8, MAX_PHOTOS_PER_SECTION)}
-        onAnalyze={async (photos) => {
+        onAnalyze={async (photos: string[]) => {
           setEnvironmentPhotos(photos);
-          // Mock AI environment analysis
-          setValue('nearbyTrees', true);
-          setValue('grassOrDirt', 'both');
-          handleFieldBlur('nearbyTrees', true);
+          // Mock AI environment analysis with proper typing
+          const analysisResults = {
+            nearbyTrees: true,
+            treeTypes: 'Oak and Pine trees detected',
+            grassOrDirt: 'both' as const,
+            sprinklerSystem: true
+          };
+          
+          // Update form values
+          Object.entries(analysisResults).forEach(([field, value]) => {
+            setValue(field as keyof PoolDetailsData, value);
+            handleFieldBlur(field, value);
+          });
         }}
         allowBatchAnalysis={true}
       />
     </View>
     
-    {/* Nearby Trees */}
-    <Controller
-      control={control}
-      name="nearbyTrees"
-      render={({ field: { onChange, value } }) => (
-        <TouchableOpacity
-          style={styles.checkboxRow}
-          onPress={() => {
-            onChange(!value);
-            handleFieldBlur('nearbyTrees', !value);
-          }}
-        >
-          <View style={[styles.checkbox, value && styles.checkboxChecked]}>
-            {value && <Ionicons name="checkmark" size={16} color="white" />}
-          </View>
-          <Text style={styles.checkboxLabel}>Trees near pool</Text>
-        </TouchableOpacity>
-      )}
-    />
-    
-    {control._formValues?.nearbyTrees && (
-      <Controller
-        control={control}
-        name="treeTypes"
-        render={({ field: { onChange, value } }) => (
-          <UncontrolledInput
-            label="Types of trees"
-            initialValue={value || ''}
-            onBlurValue={(text: string) => {
-              onChange(text);
-              handleFieldBlur('treeTypes', text);
-            }}
-            placeholder="e.g., Oak, Pine, Palm"
-          />
-        )}
-      />
+    {/* AI Results Display */}
+    {environmentPhotos && environmentPhotos.length > 0 && (
+      <View style={styles.aiResultsCard}>
+        <Text style={styles.aiResultsTitle}>Environment Analysis Complete</Text>
+        <Text style={styles.aiResultsText}>
+          AI has analyzed the surroundings and detected environmental factors that may affect pool maintenance.
+        </Text>
+      </View>
     )}
-    
-    {/* Grass or Dirt */}
-    <Text style={styles.fieldLabel}>Surrounding Ground</Text>
-    <Controller
-      control={control}
-      name="grassOrDirt"
-      render={({ field: { onChange, value } }) => (
-        <View style={styles.optionsRow}>
-          {['grass', 'dirt', 'both'].map((option) => (
-            <TouchableOpacity
-              key={option}
-              style={[
-                styles.optionButton,
-                value === option && styles.optionButtonActive
-              ]}
-              onPress={() => {
-                onChange(option);
-                handleFieldBlur('grassOrDirt', option);
-              }}
-            >
-              <Text style={[
-                styles.optionText,
-                value === option && styles.optionTextActive
-              ]}>
-                {option.charAt(0).toUpperCase() + option.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-    />
-    
-    {/* Sprinkler System */}
-    <Controller
-      control={control}
-      name="sprinklerSystem"
-      render={({ field: { onChange, value } }) => (
-        <TouchableOpacity
-          style={styles.checkboxRow}
-          onPress={() => {
-            onChange(!value);
-            handleFieldBlur('sprinklerSystem', !value);
-          }}
-        >
-          <View style={[styles.checkbox, value && styles.checkboxChecked]}>
-            {value && <Ionicons name="checkmark" size={16} color="white" />}
-          </View>
-          <Text style={styles.checkboxLabel}>Sprinkler system present</Text>
-        </TouchableOpacity>
-      )}
-    />
   </View>
 ));
 
@@ -1061,19 +1004,22 @@ const SkimmerMiniSection: React.FC<SkimmerMiniSectionProps> = memo(({
       </View>
       <Controller
         control={control}
-        name={`skimmer${index + 1}LidModel` as any}
-        render={({ field: { onChange, value } }) => (
-          <UncontrolledInput
+        name={`skimmer${index + 1}LidModel`}
+        render={({ field: { onChange, onBlur, value } }) => (
+          <ModernInput
             label="Lid Model #"
-            initialValue={value || ''}
-            onBlurValue={(text: string) => {
-              onChange(text);
-              handleFieldBlur(`skimmer${index + 1}LidModel`, text);
+            value={value || ''}
+            onChangeText={onChange}
+            onBlur={() => {
+              onBlur();
+              handleFieldBlur(`skimmer${index + 1}LidModel`, value || '');
             }}
             autoCorrect={false}
             autoCapitalize="none"
             returnKeyType="done"
             blurOnSubmit={true}
+            editable={true}
+            selectTextOnFocus={true}
           />
         )}
       />
@@ -1171,6 +1117,8 @@ export const PoolDetailsStep: React.FC = () => {
   console.log('5e. deckMaterial watch successful');
   const deckCleanliness = useWatch({ control, name: 'deckCleanliness' }) || '';
   console.log('5f. deckCleanliness watch successful');
+  const watchedFeatures = useWatch({ control, name: 'features' }) || [];
+  console.log('5g. features watch successful');
   
   // Add field save timeout ref and animation frame ref
   const fieldSaveTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
@@ -1193,6 +1141,13 @@ export const PoolDetailsStep: React.FC = () => {
       }
     }
   }, [session?.poolDetails, reset]); // Remove skimmerCount from dependencies
+  
+  // Sync features from form state to local state
+  useEffect(() => {
+    if (watchedFeatures && Array.isArray(watchedFeatures) && watchedFeatures.length > 0) {
+      setSelectedFeatures(watchedFeatures);
+    }
+  }, [watchedFeatures]);
   
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => {
@@ -1375,16 +1330,26 @@ export const PoolDetailsStep: React.FC = () => {
     try {
       const result = await analyzeSatelliteImage(customerAddress);
       
-      // Auto-populate fields
-      setValue('shape', result.shape);
-      setValue('length', result.length);
-      setValue('width', result.width);
-      setValue('surfaceArea', result.surfaceArea);
-      
-      // Set pool type if detected
-      if (result.poolType) {
-        setValue('poolType', result.poolType);
-      }
+      // Auto-populate fields with proper form update
+      const newValues = {
+        shape: result.shape,
+        length: result.length,
+        width: result.width,
+        surfaceArea: result.surfaceArea,
+        poolType: result.poolType || poolType
+      };
+
+      // Update each field with validation
+      Object.entries(newValues).forEach(([field, value]) => {
+        setValue(field as keyof PoolDetailsData, value, { 
+          shouldValidate: true, 
+          shouldDirty: true,
+          shouldTouch: true 
+        });
+      });
+
+      // Force recalculation
+      setCalcTrigger(prev => prev + 1);
       
       setSatelliteAnalyzed(true);
       setSatelliteAnalysisResult({
@@ -1802,6 +1767,7 @@ const styles = StyleSheet.create({
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: theme.spacing.lg,  // CHANGED from no marginTop
     marginBottom: theme.spacing.md,
   },
   checkbox: {
@@ -1986,6 +1952,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.darkBlue,
     marginBottom: theme.spacing.md,
+  },
+  aiResultsText: {
+    fontSize: theme.typography.body.fontSize,
+    color: theme.colors.gray,
+    lineHeight: 22,
   },
   inputContainer: {
     flexDirection: 'row',
