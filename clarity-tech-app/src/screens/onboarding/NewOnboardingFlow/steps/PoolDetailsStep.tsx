@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, memo, useMemo, Component, ErrorInfo, ReactNode } from 'react';
 import {
   View,
   ScrollView,
@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet
 } from 'react-native';
-import { useForm, Controller, useFormContext, FormProvider, useWatch } from 'react-hook-form';
+import { useForm, Controller, useFormContext, FormProvider, useWatch, Control, UseFormSetValue, UseFormGetValues, FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,8 +21,92 @@ import { theme } from '../../../../styles/theme';
 import { webAlert } from '../utils/webAlert';
 import { FEATURES, AI_ENDPOINTS } from '../../../../config/features';
 
-// Pure function for pool calculations - moved to top to prevent circular dependencies
-const calculatePoolMetrics = (values: any): { avgDepth: number; volume: number; surfaceArea: number } => {
+// Constants
+const MAX_SKIMMERS = 10;
+const MAX_PHOTOS_PER_SECTION = 12;
+const DEBOUNCE_DELAY = 1500;
+const CALCULATION_PRECISION = 10;
+
+// Type Definitions
+interface FormControl extends Control<PoolDetailsData> {}
+
+interface FormMethods {
+  control: FormControl;
+  setValue: UseFormSetValue<PoolDetailsData>;
+  getValues: UseFormGetValues<PoolDetailsData>;
+  errors: FieldErrors<PoolDetailsData>;
+}
+
+interface SectionProps {
+  control: FormControl;
+  errors: FieldErrors<PoolDetailsData>;
+  setValue: UseFormSetValue<PoolDetailsData>;
+  handleFieldBlur: (field: string, value: any) => void;
+}
+
+interface SkimmerData {
+  [key: string]: boolean | string | number;
+}
+
+interface PoolMetrics {
+  avgDepth: number;
+  volume: number;
+  surfaceArea: number;
+}
+
+interface SatelliteAnalysisResult {
+  success: boolean;
+  message: string;
+  confidence?: number;
+  surfaceArea?: number;
+}
+
+// Error Boundary Component
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error?: Error;
+}
+
+class PoolDetailsErrorBoundary extends Component<
+  { children: ReactNode; fallback?: ReactNode },
+  ErrorBoundaryState
+> {
+  constructor(props: { children: ReactNode; fallback?: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('PoolDetailsStep Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        this.props.fallback || (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Error loading pool details</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => this.setState({ hasError: false })}
+            >
+              <Text style={styles.retryText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Pure function for pool calculations with proper typing
+const calculatePoolMetrics = (values: Partial<PoolDetailsData>): PoolMetrics => {
   const { length, width, deepEndDepth, shallowEndDepth, shape } = values;
   
   let avgDepth = 0;
@@ -31,42 +115,43 @@ const calculatePoolMetrics = (values: any): { avgDepth: number; volume: number; 
   
   // Calculate average depth
   if (deepEndDepth && shallowEndDepth) {
-    avgDepth = (parseFloat(deepEndDepth) + parseFloat(shallowEndDepth)) / 2;
+    avgDepth = (Number(deepEndDepth) + Number(shallowEndDepth)) / 2;
   }
   
   // Calculate surface area and volume
   if (length && width && avgDepth) {
-    const l = parseFloat(length);
-    const w = parseFloat(width);
+    const l = Number(length);
+    const w = Number(width);
+    const gallonsPerCubicFoot = 7.48;
     
     // Surface area calculation based on shape
     switch (shape) {
       case 'rectangle':
         surfaceArea = l * w;
-        volume = surfaceArea * avgDepth * 7.48;
+        volume = surfaceArea * avgDepth * gallonsPerCubicFoot;
         break;
       case 'oval':
         surfaceArea = Math.PI * (l / 2) * (w / 2);
-        volume = surfaceArea * avgDepth * 7.48;
+        volume = surfaceArea * avgDepth * gallonsPerCubicFoot;
         break;
       case 'round':
         const radius = l / 2;
         surfaceArea = Math.PI * radius * radius;
-        volume = surfaceArea * avgDepth * 7.48;
+        volume = surfaceArea * avgDepth * gallonsPerCubicFoot;
         break;
       case 'kidney':
       case 'freeform':
-        surfaceArea = l * w * 0.85;
-        volume = surfaceArea * avgDepth * 7.48;
+        surfaceArea = l * w * 0.85; // Irregular shape factor
+        volume = surfaceArea * avgDepth * gallonsPerCubicFoot;
         break;
       default:
         surfaceArea = l * w;
-        volume = surfaceArea * avgDepth * 7.48;
+        volume = surfaceArea * avgDepth * gallonsPerCubicFoot;
     }
   }
   
   return {
-    avgDepth: Math.round(avgDepth * 10) / 10,
+    avgDepth: Math.round(avgDepth * CALCULATION_PRECISION) / CALCULATION_PRECISION,
     volume: Math.round(volume),
     surfaceArea: Math.round(surfaceArea)
   };
@@ -437,7 +522,7 @@ const SurfaceSection = memo(({
       <AIPhotoAnalyzer
         title="Surface Photos"
         description="Capture pool surface from multiple angles"
-        maxPhotos={6}
+        maxPhotos={Math.min(6, MAX_PHOTOS_PER_SECTION)}
         onAnalyze={async (photos) => {
           setSurfacePhotos(photos);
           // Mock AI surface analysis
@@ -564,7 +649,7 @@ const EnvironmentSection = memo(({
       <AIPhotoAnalyzer
         title="Environment Photos"
         description="Include trees, landscaping, and surrounding areas"
-        maxPhotos={8}
+        maxPhotos={Math.min(8, MAX_PHOTOS_PER_SECTION)}
         onAnalyze={async (photos) => {
           setEnvironmentPhotos(photos);
           // Mock AI environment analysis
@@ -685,7 +770,7 @@ const SkimmersSection = memo(({
       <AIPhotoAnalyzer
         title="Skimmer Photos"
         description="Capture each skimmer clearly"
-        maxPhotos={12}
+        maxPhotos={MAX_PHOTOS_PER_SECTION}
         onAnalyze={async (photos) => {
           // Mock AI skimmer detection
           const detectedCount = Math.floor(Math.random() * 3) + 1;
@@ -715,13 +800,16 @@ const SkimmersSection = memo(({
         <Text style={styles.counterText}>{skimmerCount}</Text>
       </View>
       <TouchableOpacity
-        style={styles.counterButton}
+        style={[styles.counterButton, skimmerCount >= MAX_SKIMMERS && styles.counterButtonDisabled]}
         onPress={() => {
-          const newCount = skimmerCount + 1;
-          setSkimmerCount(newCount);
-          setValue('skimmerCount', newCount);
-          handleFieldBlur('skimmerCount', newCount);
+          if (skimmerCount < MAX_SKIMMERS) {
+            const newCount = skimmerCount + 1;
+            setSkimmerCount(newCount);
+            setValue('skimmerCount', newCount);
+            handleFieldBlur('skimmerCount', newCount);
+          }
         }}
+        disabled={skimmerCount >= MAX_SKIMMERS}
       >
         <Ionicons name="add" size={24} color={theme.colors.darkBlue} />
       </TouchableOpacity>
@@ -761,7 +849,7 @@ const DeckSection = memo(({
       <AIPhotoAnalyzer
         title="Deck Photos"
         description="Capture deck areas around pool"
-        maxPhotos={6}
+        maxPhotos={Math.min(6, MAX_PHOTOS_PER_SECTION)}
         onAnalyze={async (photos) => {
           setDeckPhotos(photos);
           // Mock AI deck analysis
@@ -833,8 +921,8 @@ const DeckSection = memo(({
 interface SkimmerMiniSectionProps {
   index: number;
   handleFieldBlur: (field: string, value: any) => void;
-  control: any;
-  setValue: any;
+  control: FormControl;
+  setValue: UseFormSetValue<PoolDetailsData>;
   basketCondition?: string;
   lidCondition?: string;
 }
@@ -1128,7 +1216,7 @@ export const PoolDetailsStep: React.FC = () => {
       } catch (error) {
         console.error('❌ Save failed:', error);
       }
-    }, 1500); // 1.5 second debounce for enterprise performance
+    }, DEBOUNCE_DELAY); // Enterprise-grade debounce timing
   }, [getValues, selectedFeatures, skimmerCount, updatePoolDetails, getSkimmerData]);
 
   // Get dynamic skimmer data
@@ -1155,7 +1243,7 @@ export const PoolDetailsStep: React.FC = () => {
     };
   }, []);
 
-  // Watch skimmer values individually (max 10 skimmers for safety)
+  // Watch skimmer values individually (max skimmers defined by constant)
   const skimmer1Basket = useWatch({ control, name: 'skimmer1BasketCondition' }) || '';
   const skimmer1Lid = useWatch({ control, name: 'skimmer1LidCondition' }) || '';
   const skimmer2Basket = useWatch({ control, name: 'skimmer2BasketCondition' }) || '';
@@ -1257,9 +1345,10 @@ export const PoolDetailsStep: React.FC = () => {
   
   
   return (
-    <FormProvider {...formMethods}>
-      <PerformanceMonitor />
-      <View style={styles.container}>
+    <PoolDetailsErrorBoundary>
+      <FormProvider {...formMethods}>
+        <PerformanceMonitor />
+        <View style={styles.container}>
       <LinearGradient
         colors={[theme.colors.blueGreen, theme.colors.darkBlue]}
         start={{ x: 0, y: 0 }}
@@ -1398,7 +1487,8 @@ export const PoolDetailsStep: React.FC = () => {
         <AIInsightsBox stepName="poolDetails" />
       </ScrollView>
     </View>
-    </FormProvider>
+      </FormProvider>
+    </PoolDetailsErrorBoundary>
   );
 };
 
@@ -1793,6 +1883,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  counterButtonDisabled: {
+    opacity: 0.5,
+    backgroundColor: theme.colors.grayLight,
+  },
   counterValue: {
     fontSize: 24,
     fontWeight: '600',
@@ -1929,5 +2023,31 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.h3.fontSize,
     fontWeight: '700',
     color: theme.colors.blueGreen,
+  },
+  // Error boundary styles
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.xl,
+    backgroundColor: theme.colors.white,
+  },
+  errorText: {
+    fontSize: theme.typography.h2.fontSize,
+    fontWeight: '600',
+    color: theme.colors.error,
+    textAlign: 'center',
+    marginBottom: theme.spacing.lg,
+  },
+  retryButton: {
+    backgroundColor: theme.colors.blueGreen,
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+  },
+  retryText: {
+    color: theme.colors.white,
+    fontSize: theme.typography.body.fontSize,
+    fontWeight: '600',
   },
 });
