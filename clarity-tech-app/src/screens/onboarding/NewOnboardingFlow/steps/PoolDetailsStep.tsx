@@ -44,6 +44,29 @@ interface SectionProps {
   handleFieldBlur: (field: string, value: any) => void;
 }
 
+interface SkimmerWatches {
+  basket0: string;
+  lid0: string;
+  basket1: string;
+  lid1: string;
+  basket2: string;
+  lid2: string;
+  basket3: string;
+  lid3: string;
+  basket4: string;
+  lid4: string;
+}
+
+interface SkimmersSectionProps {
+  control: FormControl;
+  errors?: FieldErrors<PoolDetailsData>;
+  setValue: UseFormSetValue<PoolDetailsData>;
+  skimmerCount: number;
+  setSkimmerCount: (count: number) => void;
+  handleFieldBlur: (field: string, value: any) => void;
+  skimmerWatches: SkimmerWatches;
+}
+
 interface SkimmerData {
   [key: string]: boolean | string | number;
 }
@@ -81,7 +104,10 @@ class PoolDetailsErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('PoolDetailsStep Error:', error, errorInfo);
+    console.error('PoolDetailsStep Error:', error);
+    console.error('Error Info:', errorInfo);
+    console.error('Stack:', error.stack);
+    console.error('Component Stack:', errorInfo.componentStack);
   }
 
   render() {
@@ -773,8 +799,9 @@ const SkimmersSection = memo(({
   setValue, 
   skimmerCount, 
   setSkimmerCount,
-  handleFieldBlur
-}: any) => (
+  handleFieldBlur,
+  skimmerWatches
+}: SkimmersSectionProps) => (
   <View>
     {/* AI Skimmer Detection */}
     <View style={styles.aiAnalyzerSection}>
@@ -831,15 +858,15 @@ const SkimmersSection = memo(({
     </View>
     
     {/* Dynamic Skimmer Mini-Sections */}
-    {Array.from({ length: skimmerCount }).map((_, index) => (
+    {skimmerWatches && Array.from({ length: skimmerCount }).map((_, index) => (
       <SkimmerMiniSection 
         key={index} 
         index={index} 
         handleFieldBlur={handleFieldBlur} 
         control={control} 
         setValue={setValue}
-        basketCondition={skimmerWatches[`basket${index}`]}
-        lidCondition={skimmerWatches[`lid${index}`]}
+        basketCondition={skimmerWatches[`basket${index}`] || ''}
+        lidCondition={skimmerWatches[`lid${index}`] || ''}
       />
     ))}
   </View>
@@ -1307,6 +1334,7 @@ export const PoolDetailsStep: React.FC = () => {
     lid4: skimmer5Lid,
   }), [skimmer1Basket, skimmer1Lid, skimmer2Basket, skimmer2Lid, skimmer3Basket, skimmer3Lid, skimmer4Basket, skimmer4Lid, skimmer5Basket, skimmer5Lid]);
 
+  console.log('6d. skimmerWatches created:', Object.keys(skimmerWatches || {}));
 
   // Mock satellite analysis function
   const analyzeSatelliteImage = async (address: string) => {
@@ -1507,6 +1535,7 @@ export const PoolDetailsStep: React.FC = () => {
                     skimmerCount={skimmerCount}
                     setSkimmerCount={setSkimmerCount}
                     handleFieldBlur={handleFieldBlur}
+                    skimmerWatches={skimmerWatches}
                   />
                 )}
                 {section.id === 'deck' && (
