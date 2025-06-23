@@ -15,11 +15,17 @@ export const API_CONFIG = {
 // API Endpoints
 export const API_ENDPOINTS = {
   AUTH: {
-    LOGIN: '/auth/login',
-    LOGOUT: '/auth/logout',
-    REFRESH: '/auth/refresh',
+    LOGIN: '/api/auth/technician/login',
+    LOGOUT: '/api/auth/technician/logout',
+    REFRESH: '/api/auth/technician/refresh',
     FORGOT_PASSWORD: '/auth/forgot-password',
     RESET_PASSWORD: '/auth/reset-password',
+  },
+  OFFERS: {
+    GET_TECHNICIAN_OFFERS: '/api/offers/technician',
+    ACCEPT: '/api/offers/:id/accept',
+    DECLINE: '/api/offers/:id/decline',
+    UNDO: '/api/offers/:id/undo',
   },
   USER: {
     PROFILE: '/user/profile',
@@ -28,13 +34,15 @@ export const API_ENDPOINTS = {
     UPLOAD_AVATAR: '/user/upload-avatar',
   },
   ONBOARDING: {
-    CREATE: '/onboarding/create',
-    UPDATE: '/onboarding/update',
-    LIST: '/onboarding/list',
-    GET: '/onboarding/get',
-    DELETE: '/onboarding/delete',
-    UPLOAD_PHOTO: '/onboarding/upload-photo',
-    UPLOAD_VOICE: '/onboarding/upload-voice',
+    GET_SESSIONS: '/api/onboarding/sessions/technician',
+    GET_SESSION: '/api/onboarding/sessions',
+    START_SESSION: '/api/onboarding/sessions/:id/start',
+    WATER_CHEMISTRY: '/api/onboarding/sessions/:id/water-chemistry',
+    EQUIPMENT: '/api/onboarding/sessions/:id/equipment',
+    POOL_DETAILS: '/api/onboarding/sessions/:id/pool-details',
+    UPLOAD_PHOTO: '/api/onboarding/sessions/:id/photos',
+    UPLOAD_VOICE: '/api/onboarding/sessions/:id/voice-note',
+    COMPLETE: '/api/onboarding/sessions/:id/complete',
   },
   CUSTOMERS: {
     LIST: '/customers/list',

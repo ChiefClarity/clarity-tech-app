@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Modal,
   View,
@@ -15,6 +15,7 @@ import { Offer } from '../../types';
 import { Card } from '../ui/Card';
 import { GradientButton } from '../ui/GradientButton';
 import { useOffers } from '../../contexts/OfferContext';
+import { useCountdownTimer } from '../../hooks/useCountdownTimer';
 
 interface EnhancedOfferModalProps {
   visible: boolean;
@@ -37,64 +38,31 @@ export const EnhancedOfferModal: React.FC<EnhancedOfferModalProps> = ({
   } = useOffers();
   
   const [loading, setLoading] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState<string>('');
-  const [undoTimeRemaining, setUndoTimeRemaining] = useState<string>('');
 
   if (!offer) return null;
 
   const offerStatus = useMemo(() => getOfferStatus(offer.id), [getOfferStatus, offer.id]);
   const canUndo = useMemo(() => canUndoAccept(offer.id), [canUndoAccept, offer.id]);
 
-  // [UI-FIX: Timers - Temporarily removed to fix crash]
-  // TODO: Restore offer expiration countdown with proper React patterns
-  // Update expiration timer
-  useEffect(() => {
-    if (!visible || !offer) {
-      setTimeRemaining('');
-      return;
-    }
+  // Calculate initial time for offer expiration
+  const expirationMinutes = useMemo(() => {
+    if (!offer?.expiresAt) return 0;
+    const timeLeft = new Date(offer.expiresAt).getTime() - new Date().getTime();
+    return Math.max(0, Math.floor(timeLeft / (1000 * 60)));
+  }, [offer?.expiresAt]);
 
-    const updateTimer = () => {
-      const now = new Date();
-      const timeLeft = offer.expiresAt.getTime() - now.getTime();
-      
-      if (timeLeft <= 0) {
-        setTimeRemaining('Expired');
-        return;
-      }
-      
-      const minutes = Math.floor(timeLeft / (1000 * 60));
-      const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-      setTimeRemaining(`${minutes}:${seconds.toString().padStart(2, '0')}`);
-    };
+  // Offer expiration timer
+  const expirationTimer = useCountdownTimer({
+    initialMinutes: expirationMinutes,
+    autoStart: visible && offerStatus === 'pending',
+  });
 
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
+  // Undo timer (2 minutes)
+  const undoTimer = useCountdownTimer({
+    initialMinutes: 2,
+    autoStart: visible && offerStatus === 'accepted' && canUndo,
+  });
 
-    return () => clearInterval(interval);
-  }, [visible, offer?.id, offer?.expiresAt]); // Fixed dependencies
-
-  // Update undo timer for accepted offers
-  useEffect(() => {
-    if (!visible || !offer || offerStatus !== 'accepted' || !canUndo) {
-      setUndoTimeRemaining('');
-      return;
-    }
-
-    const updateUndoTimer = () => {
-      // This would need access to the acceptance timestamp
-      // For now, we'll show a generic countdown
-      const timeLeft = 2 * 60 * 1000; // 2 minutes
-      const minutes = Math.floor(timeLeft / (1000 * 60));
-      const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-      setUndoTimeRemaining(`${minutes}:${seconds.toString().padStart(2, '0')}`);
-    };
-
-    updateUndoTimer();
-    const interval = setInterval(updateUndoTimer, 1000);
-
-    return () => clearInterval(interval);
-  }, [visible, offer?.id, offerStatus, canUndo]); // Fixed dependencies
 
   const handleAccept = async () => {
     console.log(`🔘 [MODAL] Accept button clicked for offer: ${offer?.id}`);
@@ -260,7 +228,7 @@ export const EnhancedOfferModal: React.FC<EnhancedOfferModalProps> = ({
               </Text>
               {isPending && (
                 <Text style={styles.expirationText}>
-                  Expires in: {timeRemaining}
+                  Expires in: {expirationTimer.isExpired ? 'Expired' : expirationTimer.display}
                 </Text>
               )}
             </View>
@@ -307,7 +275,7 @@ export const EnhancedOfferModal: React.FC<EnhancedOfferModalProps> = ({
                   <Text style={styles.undoTitle}>Undo Available</Text>
                 </View>
                 <Text style={styles.undoText}>
-                  You can undo this acceptance for {undoTimeRemaining || '2:00'} more
+                  You can undo this acceptance for {undoTimer.display} more
                 </Text>
               </Card>
             )}

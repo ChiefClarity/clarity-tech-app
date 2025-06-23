@@ -47,19 +47,12 @@ const StatCard: React.FC<StatCardProps> = ({
   loading 
 }) => {
   const hookNavigation = useNavigation();
-  console.log('🎯 [STATCARD] StatCard rendered, title:', title);
-  console.log('🎯 [STATCARD] onPress provided:', !!onPress);
-  console.log('🎯 [STATCARD] hookNavigation available:', !!hookNavigation);
 
   return (
   <TouchableOpacity 
     onPress={() => {
-      console.log('🎯 [STATCARD] TouchableOpacity pressed, onPress:', !!onPress);
       if (onPress) {
-        console.log('🎯 [STATCARD] Calling onPress function');
         onPress();
-      } else {
-        console.log('❌ [STATCARD] No onPress function provided');
       }
     }} 
     activeOpacity={onPress ? 0.7 : 1}
@@ -205,30 +198,19 @@ const OfferItem: React.FC<OfferItemProps> = ({ offer, onPress, canUndo, timeRema
 };
 
 export const EnhancedDashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
-  console.log('🏠 [DASHBOARD] Navigation prop:', navigation);
-  console.log('🏠 [DASHBOARD] Navigation type:', typeof navigation);
-  console.log('🏠 [DASHBOARD] Navigation.navigate exists:', !!navigation?.navigate);
-  
   // Use hook navigation as backup
   const hookNavigation = useNavigation();
-  console.log('🏠 [DASHBOARD] Hook navigation:', hookNavigation);
-  console.log('🏠 [DASHBOARD] Hook navigation.navigate exists:', !!hookNavigation?.navigate);
   
   // Create a reliable navigation function
   const navigateToAcceptedOnboardings = () => {
-    console.log('🚀 [DASHBOARD] navigateToAcceptedOnboardings called');
     try {
       if (navigation && navigation.navigate) {
-        console.log('🚀 [DASHBOARD] Using prop navigation');
         navigation.navigate('AcceptedOnboardings');
       } else if (hookNavigation && hookNavigation.navigate) {
-        console.log('🚀 [DASHBOARD] Using hook navigation');
         hookNavigation.navigate('AcceptedOnboardings' as never);
-      } else {
-        console.error('❌ [DASHBOARD] No navigation available');
       }
     } catch (error) {
-      console.error('❌ [DASHBOARD] Navigation error:', error);
+      // Navigation error
     }
   };
   
@@ -246,17 +228,6 @@ export const EnhancedDashboardScreen: React.FC<DashboardScreenProps> = ({ naviga
     addOffer 
   } = useOffers();
   
-  console.log(`🏠 [DASHBOARD] Rendering with:`, {
-    pendingOffersCount: pendingOffers.length,
-    acceptedOffersCount: acceptedOffers.length,
-    totalOffers: offers.size,
-    hasPendingSync,
-    isOffline,
-  });
-  
-  // Debug: Log offer statuses
-  console.log(`🏠 [DASHBOARD] Offer statuses:`, Array.from(offerStatuses.entries()));
-  
   const [refreshing, setRefreshing] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [stats, setStats] = useState<DashboardStats>({
@@ -272,7 +243,6 @@ export const EnhancedDashboardScreen: React.FC<DashboardScreenProps> = ({ naviga
     
     // Add mock offers for testing if none exist
     if (offers.size === 0) {
-      console.log(`🏠 [DASHBOARD] No offers found, adding mock offers for testing`);
       addMockOffersForTesting();
     }
   }, []);
@@ -281,9 +251,8 @@ export const EnhancedDashboardScreen: React.FC<DashboardScreenProps> = ({ naviga
     try {
       const { addMockOffersToContext } = await import('../../utils/mockOffers');
       await addMockOffersToContext(addOffer);
-      console.log(`🏠 [DASHBOARD] Mock offers added successfully`);
     } catch (error) {
-      console.error(`❌ [DASHBOARD] Failed to add mock offers:`, error);
+      // Failed to add mock offers
     }
   };
 
@@ -398,7 +367,7 @@ export const EnhancedDashboardScreen: React.FC<DashboardScreenProps> = ({ naviga
       >
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Logo size="small" variant="dark" />
+            <Logo size="medium" variant="dark" />
             <View style={styles.headerText}>
               <Text style={styles.greeting}>Hello, {user?.firstName}!</Text>
               <Text style={styles.date}>{format(new Date(), 'EEEE, MMMM d')}</Text>
@@ -440,7 +409,6 @@ export const EnhancedDashboardScreen: React.FC<DashboardScreenProps> = ({ naviga
             icon="today"
             color={theme.colors.blueGreen}
             onPress={() => {
-              console.log('📊 [STATCARD] Today\'s Onboardings clicked');
               navigateToAcceptedOnboardings();
             }}
           />
@@ -450,7 +418,6 @@ export const EnhancedDashboardScreen: React.FC<DashboardScreenProps> = ({ naviga
             icon="calendar"
             color={theme.colors.darkBlue}
             onPress={() => {
-              console.log('📊 [STATCARD] This Week clicked');
               navigateToAcceptedOnboardings();
             }}
           />
@@ -460,7 +427,6 @@ export const EnhancedDashboardScreen: React.FC<DashboardScreenProps> = ({ naviga
             icon="checkmark-circle"
             color={theme.colors.success}
             onPress={() => {
-              console.log('📊 [STATCARD] Accepted clicked');
               navigateToAcceptedOnboardings();
             }}
             showBadge={acceptedOffers.length > 0}
@@ -483,7 +449,6 @@ export const EnhancedDashboardScreen: React.FC<DashboardScreenProps> = ({ naviga
                 key={offer.id}
                 offer={offer}
                 onPress={() => {
-                  console.log(`🏠 [DASHBOARD] Offer item clicked, setting selected offer:`, offer.id);
                   setSelectedOffer(offer);
                 }}
               />
@@ -557,7 +522,6 @@ export const EnhancedDashboardScreen: React.FC<DashboardScreenProps> = ({ naviga
         visible={!!selectedOffer}
         offer={selectedOffer}
         onClose={() => {
-          console.log(`🏠 [DASHBOARD] Modal closing, clearing selected offer`);
           setSelectedOffer(null);
         }}
       />

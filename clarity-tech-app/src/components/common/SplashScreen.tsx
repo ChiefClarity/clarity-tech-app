@@ -47,8 +47,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
           source={require('../../../../assets/images/splash.png')}
           style={styles.splashImage}
           resizeMode="stretch"
-          onLoad={() => console.log('Splash image loaded successfully')}
-          onError={(error) => console.log('Splash image failed to load:', error)}
+          onLoad={() => {}}
+          onError={(error) => {}}
         />
       </Animated.View>
     </View>

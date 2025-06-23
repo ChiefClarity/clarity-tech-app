@@ -1,10 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authTokenStorage } from '../services/storage/secureStorage';
 import { authService } from '../services/api/auth';
 import { STORAGE_KEYS } from '../constants/storage';
 import { User, AuthState } from '../types';
 import { logger } from '../utils/logger';
+import { FEATURES } from '../config/featureFlags';
+import { offlineQueue } from '../services/storage/queue';
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; error?: string }>;
@@ -22,23 +24,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAuthenticated: false,
     isLoading: true,
   });
+  const authFailedListenerRef = useRef<((event: Event) => void) | null>(null);
 
   useEffect(() => {
     checkAuthStatus();
+    
+    // Listen for auth failure events from API client
+    const handleAuthFailed = () => {
+      logger.auth.info('Auth failure event received, logging out');
+      logout();
+    };
+    
+    authFailedListenerRef.current = handleAuthFailed;
+    window.addEventListener('auth:failed', handleAuthFailed);
+    
+    return () => {
+      if (authFailedListenerRef.current) {
+        window.removeEventListener('auth:failed', authFailedListenerRef.current);
+      }
+    };
   }, []);
 
   const checkAuthStatus = async () => {
     try {
+      setAuthState(prev => ({ ...prev, isLoading: true }));
+      
       const token = await authTokenStorage.getToken();
       const userStr = await AsyncStorage.getItem(STORAGE_KEYS.USER_DATA);
 
       logger.auth.debug('checkAuthStatus', {
         token: token ? 'EXISTS' : 'NULL',
-        user: userStr ? 'EXISTS' : 'NULL'
+        user: userStr ? 'EXISTS' : 'NULL',
+        useRealAuth: FEATURES.USE_REAL_AUTH
       });
 
       if (token && userStr) {
         const user = JSON.parse(userStr) as User;
+        
+        // If using real auth, check if token is still valid
+        if (FEATURES.USE_REAL_AUTH) {
+          const isValid = await authService.isTokenValid();
+          
+          if (!isValid) {
+            logger.auth.info('Token expired, attempting refresh');
+            const refreshResult = await authService.refreshToken();
+            
+            if (!refreshResult.success) {
+              logger.auth.warn('Token refresh failed, clearing auth');
+              await authTokenStorage.clearAllTokens();
+              await AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA);
+              setAuthState({
+                user: null,
+                isAuthenticated: false,
+                isLoading: false,
+              });
+              return;
+            }
+          }
+        }
+        
         logger.auth.info('Setting authenticated = true', {
           user: user.displayName || `${user.firstName} ${user.lastName}`,
           email: user.email
@@ -68,16 +112,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = useCallback(async (email: string, password: string, rememberMe: boolean = false) => {
     try {
+      setAuthState(prev => ({ ...prev, isLoading: true }));
+      
       const response = await authService.login({ email, password });
 
       if (response.success && response.data) {
         const { user, token } = response.data;
 
-        // Save auth data (tokens in secure storage, user data in regular storage)
-        await authTokenStorage.setToken(token);
-        if (response.data.refreshToken) {
-          await authTokenStorage.setRefreshToken(response.data.refreshToken);
-        }
+        // Save auth data (handled by authService for tokens)
         await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
 
         if (rememberMe) {
@@ -92,60 +134,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         return { success: true };
       } else {
+        setAuthState(prev => ({ ...prev, isLoading: false }));
         return { success: false, error: response.error || 'Login failed' };
       }
     } catch (error) {
       logger.auth.error('Login error', error);
+      setAuthState(prev => ({ ...prev, isLoading: false }));
       return { success: false, error: 'An unexpected error occurred' };
     }
   }, []);
 
   const logout = useCallback(async () => {
     logger.auth.info('Logout initiated');
+    setAuthState(prev => ({ ...prev, isLoading: true }));
     
     try {
+      // authService.logout() handles clearing all storage including offline queue
       await authService.logout();
-      logger.auth.debug('Logout API call successful');
+      logger.auth.debug('Logout complete');
     } catch (error) {
-      logger.auth.error('Logout API error', error);
+      logger.auth.error('Logout error', error);
     }
-
-    // Clear auth token from secure storage
-    await authTokenStorage.clearAllTokens();
-    
-    // Clear other auth related data from regular storage
-    const keysToRemove = [
-      STORAGE_KEYS.USER_DATA, 
-      STORAGE_KEYS.REMEMBER_ME,
-      // Legacy keys that might exist
-      'authToken',
-      'technicianId',
-      'technicianName',
-      '@clarity_auth_token',
-      '@clarity_user_data',
-      '@clarity_remember_me'
-    ];
-    
-    logger.auth.debug('Clearing storage keys', { keys: keysToRemove });
-    await AsyncStorage.multiRemove(keysToRemove);
 
     logger.auth.info('Logout complete - setting authenticated = false');
     
-    // Small delay to ensure storage operations complete, then update auth state
-    setTimeout(() => {
-      setAuthState(prevState => {
-        logger.auth.debug('Logout state update', {
-          from: { isAuthenticated: prevState.isAuthenticated, user: prevState.user?.email },
-          to: { isAuthenticated: false, user: null }
-        });
-        return {
-          user: null,
-          isAuthenticated: false,
-          isLoading: false,
-        };
-      });
-      
-    }, 50);
+    // Update auth state immediately
+    setAuthState({
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+    });
   }, []);
 
   const updateUser = useCallback((user: User) => {

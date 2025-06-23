@@ -9,6 +9,10 @@ localPort = 8081
 externalPort = 8081
 
 [[ports]]
+localPort = 8082
+externalPort = 5173
+
+[[ports]]
 localPort = 12050
 externalPort = 3003
 exposeLocalhost = true
@@ -27,11 +31,41 @@ localPort = 19007
 externalPort = 3001
 
 [[ports]]
+localPort = 20103
+externalPort = 8000
+exposeLocalhost = true
+
+[[ports]]
+localPort = 21513
+externalPort = 6000
+exposeLocalhost = true
+
+[[ports]]
 localPort = 30620
 externalPort = 80
 exposeLocalhost = true
 
 [[ports]]
-localPort = 37463
+localPort = 34051
+externalPort = 8099
+exposeLocalhost = true
+
+[[ports]]
+localPort = 52040
+externalPort = 8080
+exposeLocalhost = true
+
+[[ports]]
+localPort = 52866
+externalPort = 6800
+exposeLocalhost = true
+
+[[ports]]
+localPort = 60005
+externalPort = 8008
+exposeLocalhost = true
+
+[[ports]]
+localPort = 64246
 externalPort = 5000
 exposeLocalhost = true

@@ -129,8 +129,6 @@ export const AcceptedOnboardingsScreen: React.FC<AcceptedOnboardingsScreenProps>
   };
 
   const handleStartOnboarding = async (offer: Offer) => {
-    console.log(`🚀 [ONBOARDING] Starting onboarding for:`, offer.customerName);
-    
     // [API-INTEGRATION: Scheduling - Needs backend first]
     // TODO: Update service status to 'in_progress' in scheduling API
     // await schedulingApi.updateServiceStatus(serviceId, { 

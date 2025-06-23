@@ -21,8 +21,6 @@ class WebNetworkMonitor {
   private reconnectTimeouts: NodeJS.Timeout[] = [];
 
   initialize() {
-    console.log('🌐 Initializing Web Network Monitor...');
-    
     // Set initial status
     this.updateNetworkStatus(navigator.onLine);
     
@@ -54,17 +52,13 @@ class WebNetworkMonitor {
       isInternetReachable: isConnected,
     };
 
-    console.log('🌐 Network status changed:', this.currentStatus);
-
     // Notify listeners
     this.listeners.forEach(listener => listener(this.currentStatus));
 
     // Handle connection recovery
     if (!wasConnected && isConnected) {
-      console.log('🎉 Network connection restored!');
       this.handleConnectionRecovered();
     } else if (wasConnected && !isConnected) {
-      console.log('📡 Network connection lost');
       this.handleConnectionLost();
     }
   }
@@ -146,7 +140,6 @@ class WebNetworkMonitor {
       // 1. Test actual connectivity
       const hasConnectivity = await this.testConnectivity();
       if (!hasConnectivity) {
-        console.log('❌ No actual internet connectivity, scheduling retry...');
         this.scheduleReconnectAttempt();
         return;
       }
@@ -154,30 +147,21 @@ class WebNetworkMonitor {
       // 2. Validate auth token
       const isTokenValid = await authService.isTokenValid();
       if (!isTokenValid) {
-        console.log('🔑 Token invalid, attempting refresh...');
         const refreshResult = await authService.refreshToken();
         if (!refreshResult.success) {
-          console.log('❌ Token refresh failed, user needs to re-authenticate');
           return;
         }
       }
 
       // 3. Process offline queue
-      console.log('📤 Processing offline queue...');
       const stats = await syncQueue.getQueueStats();
       if (stats.pending > 0 || stats.failed > 0) {
-        console.log(`📊 Queue stats: ${stats.pending} pending, ${stats.failed} failed`);
-        
         // Retry all failed items first
         if (stats.failed > 0) {
           const retriedCount = await syncQueue.retryAllFailedItems();
-          console.log(`🔄 Retried ${retriedCount} failed items`);
         }
       }
-
-      console.log('✅ Network recovery completed successfully');
     } catch (error) {
-      console.error('❌ Error during network recovery:', error);
       this.scheduleReconnectAttempt();
     }
   }
@@ -191,14 +175,11 @@ class WebNetworkMonitor {
 
   private scheduleReconnectAttempt() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('⚠️ Max reconnect attempts reached, giving up');
       return;
     }
 
     this.reconnectAttempts++;
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000); // Exponential backoff, max 30s
-    
-    console.log(`🔄 Scheduling reconnect attempt ${this.reconnectAttempts} in ${delay}ms`);
     
     const timeout = setTimeout(async () => {
       if (navigator.onLine) {

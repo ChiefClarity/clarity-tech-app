@@ -14,7 +14,7 @@ class SecureStorageService {
     try {
       await AsyncStorage.setItem(key, value);
     } catch (error) {
-      console.error('Error storing item:', error);
+      // Error storing item
       throw error;
     }
   }
@@ -28,7 +28,7 @@ class SecureStorageService {
     try {
       return await AsyncStorage.getItem(key);
     } catch (error) {
-      console.error('Error retrieving item:', error);
+      // Error retrieving item
       return null;
     }
   }
@@ -41,7 +41,7 @@ class SecureStorageService {
     try {
       await AsyncStorage.removeItem(key);
     } catch (error) {
-      console.error('Error removing item:', error);
+      // Error removing item
       throw error;
     }
   }
@@ -54,7 +54,7 @@ class SecureStorageService {
     try {
       await AsyncStorage.multiRemove(keys);
     } catch (error) {
-      console.error('Error removing multiple items:', error);
+      // Error removing multiple items
       throw error;
     }
   }

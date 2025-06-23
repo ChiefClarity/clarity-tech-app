@@ -31,7 +31,7 @@ export type DashboardNavigationProp = CompositeNavigationProp<
 // Onboarding Navigation
 export type OnboardingStackNavigationProp = StackNavigationProp<OnboardingStackParamList>;
 export type OnboardingFlowNavigationProp = CompositeNavigationProp<
-  StackNavigationProp<RootStackParamList, 'OnboardingFlow'>,
+  StackNavigationProp<RootStackParamList, 'NewOnboardingFlow'>,
   RootStackNavigationProp
 >;
 
@@ -47,7 +47,7 @@ export interface DashboardScreenProps {
 
 export interface OnboardingFlowScreenProps {
   navigation: OnboardingFlowNavigationProp;
-  route: RouteProp<RootStackParamList, 'OnboardingFlow'>;
+  route: RouteProp<RootStackParamList, 'NewOnboardingFlow'>;
 }
 
 // Navigation state types

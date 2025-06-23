@@ -22,6 +22,7 @@ export const FEATURES = {
   USE_REAL_AUTH: process.env.EXPO_PUBLIC_USE_REAL_AUTH === 'true' || false,
   USE_REAL_OFFERS: process.env.EXPO_PUBLIC_USE_REAL_OFFERS === 'true' || false,
   USE_REAL_ONBOARDING: process.env.EXPO_PUBLIC_USE_REAL_ONBOARDING === 'true' || false,
+  ENABLE_OFFLINE_MODE: process.env.EXPO_PUBLIC_ENABLE_OFFLINE_MODE === 'true' || false,
   
   // 🟡 PRIORITY 2: Data Collection & AI
   ENABLE_PHOTO_UPLOAD: process.env.EXPO_PUBLIC_ENABLE_PHOTO_UPLOAD === 'true' || isDevelopment,

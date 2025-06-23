@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../../../../styles/theme';
+import { Logo } from '../../../../components/common/Logo';
 
 interface Step {
   id: string;
@@ -29,53 +30,59 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Header with Save & Exit */}
+      {/* Single Row Header with Logo, Step Info, and Save & Exit */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onSaveAndExit} style={styles.saveButton}>
-          <Ionicons name="save-outline" size={20} color={theme.colors.gray} />
-          <Text style={styles.saveText}>Save & Exit</Text>
-        </TouchableOpacity>
-      </View>
+        {/* Logo Section */}
+        <View style={styles.logoSection}>
+          <Logo 
+            size="medium" 
+            variant="dark" 
+            style={styles.headerLogo}
+            testID="onboarding-header-logo"
+          />
+        </View>
 
-      {/* Progress Steps */}
-      <View style={styles.stepsIndicator}>
-        {steps.map((step, index) => {
-          const status = getStepStatus(index);
-          const isLast = index === steps.length - 1;
+        {/* Step Info Section */}
+        <View style={styles.stepInfoSection}>
+          <Text style={styles.stepTitle}>
+            Step {currentStep + 1} of {steps.length}: {steps[currentStep].title}
+          </Text>
+          {/* Progress Dots */}
+          <View style={styles.progressDots}>
+            {steps.map((_, index) => {
+              const status = getStepStatus(index);
+              const isLast = index === steps.length - 1;
+              
+              return (
+                <View key={index} style={styles.dotWrapper}>
+                  <View
+                    style={[
+                      styles.dot,
+                      status === 'completed' && styles.dotCompleted,
+                      status === 'current' && styles.dotCurrent,
+                    ]}
+                  />
+                  {!isLast && (
+                    <View
+                      style={[
+                        styles.dotConnector,
+                        status === 'completed' && styles.dotConnectorCompleted,
+                      ]}
+                    />
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        </View>
 
-          return (
-            <View key={step.id} style={styles.stepDotContainer}>
-              <View
-                style={[
-                  styles.stepDot,
-                  status === 'completed' && styles.stepDotCompleted,
-                  status === 'current' && styles.stepDotCurrent,
-                ]}
-              >
-                {status === 'completed' ? (
-                  <Ionicons name="checkmark" size={12} color="white" />
-                ) : (
-                  <Text style={styles.stepNumber}>{index + 1}</Text>
-                )}
-              </View>
-              {!isLast && (
-                <View
-                  style={[
-                    styles.stepConnector,
-                    status === 'completed' && styles.stepConnectorCompleted,
-                  ]}
-                />
-              )}
-            </View>
-          );
-        })}
-      </View>
-
-      {/* Current Step Info */}
-      <View style={styles.currentStepInfo}>
-        <Text style={styles.currentStepTitle}>
-          Step {currentStep + 1} of {steps.length}: {steps[currentStep].title}
-        </Text>
+        {/* Save & Exit Section */}
+        <View style={styles.saveSection}>
+          <TouchableOpacity onPress={onSaveAndExit} style={styles.saveButton}>
+            <Ionicons name="save-outline" size={18} color={theme.colors.gray} />
+            <Text style={styles.saveText}>Save & Exit</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -94,75 +101,77 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    alignItems: 'center',
     paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-    paddingTop: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    minHeight: 80,
+  },
+  logoSection: {
+    paddingRight: theme.spacing.lg,
+  },
+  headerLogo: {
+    width: 140,
+    height: 56,
+  },
+  stepInfoSection: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepTitle: {
+    fontSize: theme.typography.h3.fontSize,
+    fontWeight: '600',
+    color: theme.colors.darkBlue,
+    marginBottom: theme.spacing.xs,
+  },
+  progressDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dotWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.colors.border,
+  },
+  dotCompleted: {
+    backgroundColor: theme.colors.success,
+  },
+  dotCurrent: {
+    backgroundColor: theme.colors.blueGreen,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  dotConnector: {
+    width: 16,
+    height: 2,
+    backgroundColor: theme.colors.border,
+    marginHorizontal: 4,
+  },
+  dotConnectorCompleted: {
+    backgroundColor: theme.colors.success,
+  },
+  saveSection: {
+    paddingLeft: theme.spacing.lg,
   },
   saveButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.xs,
-    paddingVertical: theme.spacing.xs,
+    paddingVertical: theme.spacing.sm,
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.lightGray + '30',
+    backgroundColor: theme.colors.lightGray + '20',
   },
   saveText: {
     fontSize: theme.typography.body.fontSize,
     color: theme.colors.gray,
     fontWeight: '500',
-  },
-  stepsIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-  },
-  stepDotContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  stepDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepDotCompleted: {
-    backgroundColor: theme.colors.success,
-  },
-  stepDotCurrent: {
-    backgroundColor: theme.colors.blueGreen,
-    borderWidth: 3,
-    borderColor: theme.colors.blueGreen + '40',
-  },
-  stepNumber: {
-    fontSize: 12,
-    color: theme.colors.gray,
-    fontWeight: '600',
-  },
-  stepConnector: {
-    width: 32,
-    height: 2,
-    backgroundColor: theme.colors.border,
-    marginHorizontal: theme.spacing.xs,
-  },
-  stepConnectorCompleted: {
-    backgroundColor: theme.colors.success,
-  },
-  currentStepInfo: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.lg,
-    paddingTop: theme.spacing.xs,
-  },
-  currentStepTitle: {
-    fontSize: theme.typography.h3.fontSize,
-    fontWeight: '600',
-    color: theme.colors.darkBlue,
-    textAlign: 'center',
   },
 });

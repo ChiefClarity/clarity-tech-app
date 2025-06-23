@@ -1248,8 +1248,6 @@ export const PoolDetailsStep: React.FC = () => {
     
     // Debounce the save with longer timeout for better performance
     fieldSaveTimeouts.current[field] = setTimeout(async () => {
-      console.log(`💾 Saving ${field}:`, value);
-      
       const allValues = getValues();
       const metrics = calculatePoolMetrics(allValues);
       

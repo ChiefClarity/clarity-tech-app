@@ -20,7 +20,8 @@
     "todo:push": "grep -r 'API-INTEGRATION: Push' src/ || echo 'No Push integrations found'",
     "todo:poolbrain": "grep -r 'API-INTEGRATION: Poolbrain' src/ || echo 'No Poolbrain integrations found'",
     "todo:ui": "grep -r 'UI-FIX' src/ docs/ || echo 'No UI fixes found'",
-    "todo:all": "npm run todo:api && echo '\n=== Priority 1 Items ===' && npm run todo:priority && echo '\n=== UI Fixes ===' && npm run todo:ui"
+    "todo:all": "npm run todo:api && echo '\n=== Priority 1 Items ===' && npm run todo:priority && echo '\n=== UI Fixes ===' && npm run todo:ui",
+    "test:integration": "echo '🚀 Integration Testing Instructions:\n\n1. Start API server in Terminal 1:\n   cd ../clarity-pool-api && npm run start:dev\n\n2. Start Tech App in Terminal 2:\n   npm run web\n\n3. Follow the checklist at:\n   src/__tests__/integration-checklist.md\n\n4. Enable debug mode by opening browser console\n   to see API request/response logs\n'"
   },
   "dependencies": {
     "@expo-google-fonts/poppins": "^0.4.0",

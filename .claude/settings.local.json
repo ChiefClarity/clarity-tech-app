@@ -8,7 +8,8 @@
       "Bash(ls:*)",
       "Bash(rm:*)",
       "Bash(expo start:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

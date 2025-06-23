@@ -52,7 +52,7 @@ export default function App() {
         
         setIsAppReady(true);
       } catch (e) {
-        console.warn(e);
+        // Font loading error
         setIsAppReady(true);
       }
     }
@@ -66,18 +66,14 @@ export default function App() {
   }, []);
 
   if (!isAppReady || showSplash) {
-    console.log('App: Showing splash screen', { isAppReady, showSplash });
     return (
       <SplashScreen
         onFinish={() => {
-          console.log('App: Splash screen finished');
           setShowSplash(false);
         }}
       />
     );
   }
-
-  console.log('App: Rendering main app');
 
   return (
     <SafeAreaProvider>

@@ -3,6 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Offer, OfferStatus, PendingAction, OfferState } from '../types';
 import { useOffline } from '../hooks/useOffline';
 import { FEATURES } from '../config/featureFlags';
+import { offersService } from '../services/api/offers';
+import { useAuth } from './AuthContext';
 
 // TODO: Offer assignment algorithm
 // Score = (proximityWeight * (1/distance)) + (ratingWeight * rating)
@@ -43,11 +45,9 @@ const initialState: OfferState = {
 
 // Reducer
 function offerReducer(state: OfferState, action: OfferAction): OfferState {
-  console.log(`🔄 [REDUCER] Action dispatched:`, action.type, action.payload);
   
   switch (action.type) {
     case 'LOAD_STATE': {
-      console.log(`🔄 [REDUCER] Loading state:`, action.payload);
       return {
         ...state,
         ...action.payload,
@@ -55,14 +55,11 @@ function offerReducer(state: OfferState, action: OfferAction): OfferState {
     }
 
     case 'ADD_OFFER': {
-      console.log(`🔄 [REDUCER] Adding offer:`, action.payload.id);
       const newOffers = new Map(state.offers);
       const newStatuses = new Map(state.offerStatuses);
       
       newOffers.set(action.payload.id, action.payload);
       newStatuses.set(action.payload.id, 'pending');
-      
-      console.log(`🔄 [REDUCER] Offers map size after add:`, newOffers.size);
       
       return {
         ...state,
@@ -72,12 +69,9 @@ function offerReducer(state: OfferState, action: OfferAction): OfferState {
     }
 
     case 'UPDATE_OFFER_STATUS': {
-      console.log(`🔄 [REDUCER] Updating offer status: ${action.payload.offerId} -> ${action.payload.status}`);
       const newStatuses = new Map(state.offerStatuses);
       const oldStatus = newStatuses.get(action.payload.offerId);
       newStatuses.set(action.payload.offerId, action.payload.status);
-      
-      console.log(`🔄 [REDUCER] Status change: ${oldStatus} -> ${action.payload.status}`);
       
       return {
         ...state,
@@ -170,6 +164,7 @@ interface OfferContextType {
   hasPendingSync: boolean;
   
   // Methods
+  fetchOffers: () => Promise<void>;
   acceptOffer: (offerId: string) => Promise<void>;
   declineOffer: (offerId: string) => Promise<void>;
   undoAccept: (offerId: string) => Promise<boolean>;
@@ -188,13 +183,11 @@ const OfferContext = createContext<OfferContextType | undefined>(undefined);
 // Helper functions for persistence
 const saveToStorage = async (key: string, data: any): Promise<void> => {
   try {
-    console.log(`🗄️ [STORAGE] Saving ${key}:`, data instanceof Map ? `Map with ${data.size} entries` : data);
     
     let serializedData: string;
     
     if (data instanceof Map) {
       const entries = Array.from(data.entries());
-      console.log(`🗄️ [STORAGE] Map entries for ${key}:`, entries);
       serializedData = JSON.stringify(entries);
     } else if (Array.isArray(data)) {
       serializedData = JSON.stringify(data.map(item => ({
@@ -206,23 +199,18 @@ const saveToStorage = async (key: string, data: any): Promise<void> => {
     }
     
     await AsyncStorage.setItem(key, serializedData);
-    console.log(`✅ [STORAGE] Successfully saved ${key}`);
   } catch (error) {
-    console.error(`❌ [STORAGE] Failed to save ${key} to storage:`, error);
   }
 };
 
 const loadFromStorage = async (key: string): Promise<any> => {
   try {
-    console.log(`📂 [STORAGE] Loading ${key}...`);
     const data = await AsyncStorage.getItem(key);
     if (!data) {
-      console.log(`📂 [STORAGE] No data found for ${key}`);
       return null;
     }
     
     const parsed = JSON.parse(data);
-    console.log(`📂 [STORAGE] Parsed data for ${key}:`, parsed);
     
     // Handle specific data types
     if (key === STORAGE_KEYS.OFFERS) {
@@ -236,7 +224,6 @@ const loadFromStorage = async (key: string): Promise<any> => {
           offeredAt: new Date(offer.offeredAt),
         });
       });
-      console.log(`📂 [STORAGE] Loaded ${map.size} offers from storage`);
       return map;
     }
     
@@ -248,7 +235,6 @@ const loadFromStorage = async (key: string): Promise<any> => {
           map.set(id, new Date(timestamp));
         });
       }
-      console.log(`📂 [STORAGE] Loaded ${map.size} entries for ${key}`);
       return map;
     }
     
@@ -257,57 +243,36 @@ const loadFromStorage = async (key: string): Promise<any> => {
         ...item,
         timestamp: new Date(item.timestamp),
       }));
-      console.log(`📂 [STORAGE] Loaded ${result.length} sync queue items`);
       return result;
     }
     
     return parsed;
   } catch (error) {
-    console.error(`❌ [STORAGE] Failed to load ${key} from storage:`, error);
     return null;
   }
 };
 
-// [API-INTEGRATION: Offers - Priority 1]
-// TODO: Replace with real API endpoints
-const mockApiAcceptOffer = async (offerId: string): Promise<void> => {
-  // TODO: POST /api/offers/:id/accept
-  // [API-INTEGRATION: Push - Priority 3] Send push when new offer arrives
+const apiAcceptOffer = async (offerId: string): Promise<void> => {
+  const response = await offersService.acceptOffer(offerId);
   
-  console.log(`🌐 [MOCK API] Starting accept offer API call for: ${offerId}`);
-  
-  if (FEATURES.USE_REAL_OFFERS) {
-    console.log(`🌐 [MOCK API] Real API enabled, but not implemented`);
-    // Real API implementation would go here
-    throw new Error('Real API not implemented yet');
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to accept offer');
   }
-  
-  // Mock implementation for development
-  console.log(`🌐 [MOCK API] Simulating API delay...`);
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  if (Math.random() < 0.1) { // 10% chance of failure for testing
-    console.error(`❌ [MOCK API] Simulated network error for offer: ${offerId}`);
-    throw new Error('Network error');
-  }
-  
-  console.log(`✅ [MOCK API] Successfully accepted offer: ${offerId}`);
 };
 
-const mockApiDeclineOffer = async (offerId: string): Promise<void> => {
-  // TODO: POST /api/offers/:id/decline
-  // [API-INTEGRATION: Offers - Priority 1]
+const apiDeclineOffer = async (offerId: string): Promise<void> => {
+  const response = await offersService.declineOffer(offerId);
   
-  if (FEATURES.USE_REAL_OFFERS) {
-    // Real API implementation would go here
-    throw new Error('Real API not implemented yet');
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to decline offer');
   }
+};
+
+const apiUndoOfferAction = async (offerId: string): Promise<void> => {
+  const response = await offersService.undoOfferAction(offerId);
   
-  // Mock implementation for development
-  console.log('[MOCK API] Declining offer:', offerId);
-  await new Promise(resolve => setTimeout(resolve, 500));
-  if (Math.random() < 0.05) { // 5% chance of failure
-    throw new Error('Network error');
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to undo action');
   }
 };
 
@@ -315,6 +280,7 @@ const mockApiDeclineOffer = async (offerId: string): Promise<void> => {
 export const OfferProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(offerReducer, initialState);
   const { isOffline } = useOffline();
+  const { user } = useAuth();
   const expirationTimerRef = useRef<NodeJS.Timeout | null>(null);
   const syncTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -339,7 +305,6 @@ export const OfferProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           },
         });
       } catch (error) {
-        console.error('Failed to load initial state:', error);
       }
     };
 
@@ -348,14 +313,6 @@ export const OfferProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Save state to storage whenever it changes
   useEffect(() => {
-    console.log(`💾 [PROVIDER] State changed, saving to storage...`);
-    console.log(`💾 [PROVIDER] Current state:`, {
-      offersCount: state.offers.size,
-      statusesCount: state.offerStatuses.size,
-      timestampsCount: state.acceptanceTimestamps.size,
-      syncQueueLength: state.syncQueue.length,
-    });
-    
     const saveState = async () => {
       try {
         await Promise.all([
@@ -364,9 +321,7 @@ export const OfferProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           saveToStorage(STORAGE_KEYS.ACCEPTANCE_TIMESTAMPS, state.acceptanceTimestamps),
           saveToStorage(STORAGE_KEYS.SYNC_QUEUE, state.syncQueue),
         ]);
-        console.log(`✅ [PROVIDER] All state saved successfully`);
       } catch (error) {
-        console.error(`❌ [PROVIDER] Failed to save state:`, error);
       }
     };
 
@@ -433,51 +388,78 @@ export const OfferProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const hasPendingSync = state.syncQueue.length > 0;
 
   // Methods
+  const fetchOffers = useCallback(async (): Promise<void> => {
+    console.log('📋 [Offers] Fetching offers...');
+    try {
+      if (!user?.id) {
+        console.warn('⚠️ [Offers] No user ID available for fetching offers');
+        return;
+      }
+
+      const response = await offersService.fetchTechnicianOffers(user.id);
+      
+      if (response.success && response.data) {
+        // Clear existing offers and statuses
+        const newOffers = new Map<string, Offer>();
+        const newStatuses = new Map<string, OfferStatus>();
+        
+        response.data.offers.forEach(offer => {
+          newOffers.set(offer.id, offer);
+          
+          // Check if offer is expired
+          const now = new Date();
+          if (now > offer.expiresAt) {
+            newStatuses.set(offer.id, 'expired');
+          } else {
+            // Check if we have a local status for this offer
+            const existingStatus = state.offerStatuses.get(offer.id);
+            newStatuses.set(offer.id, existingStatus || 'pending');
+          }
+        });
+        
+        // Update state with new offers
+        dispatch({ 
+          type: 'LOAD_STATE', 
+          payload: {
+            offers: newOffers,
+            offerStatuses: newStatuses,
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching offers:', error);
+    }
+  }, [user?.id, state.offerStatuses]);
+
   const acceptOffer = useCallback(async (offerId: string): Promise<void> => {
-    console.log(`🎯 [ACCEPT] Starting accept offer flow for: ${offerId}`);
     
     try {
-      console.log(`🔍 [ACCEPT] Checking offer exists...`);
       const offer = state.offers.get(offerId);
       if (!offer) {
-        console.error(`❌ [ACCEPT] Offer not found: ${offerId}`);
         throw new Error('Offer not found');
       }
-      console.log(`✅ [ACCEPT] Offer found:`, offer);
 
-      console.log(`🔍 [ACCEPT] Checking offer status...`);
       const currentStatus = state.offerStatuses.get(offerId);
-      console.log(`🔍 [ACCEPT] Current status: ${currentStatus}`);
       
       if (currentStatus !== 'pending') {
-        console.error(`❌ [ACCEPT] Offer not pending: ${currentStatus}`);
         throw new Error('Offer is not available for acceptance');
       }
 
-      console.log(`🔍 [ACCEPT] Checking expiration...`);
       const now = new Date();
       const expiresAt = offer.expiresAt;
-      console.log(`🔍 [ACCEPT] Now: ${now.toISOString()}, Expires: ${expiresAt.toISOString()}`);
       
       if (now > expiresAt) {
-        console.log(`⏰ [ACCEPT] Offer expired, updating status`);
         dispatch({ type: 'UPDATE_OFFER_STATUS', payload: { offerId, status: 'expired' } });
         throw new Error('Offer has expired');
       }
 
-      console.log(`🚀 [ACCEPT] Starting optimistic updates...`);
       // Optimistic update
       const timestamp = new Date();
-      console.log(`🚀 [ACCEPT] Dispatching status update to 'accepted'`);
       dispatch({ type: 'UPDATE_OFFER_STATUS', payload: { offerId, status: 'accepted' } });
-      
-      console.log(`🚀 [ACCEPT] Dispatching acceptance timestamp`);
       dispatch({ type: 'SET_ACCEPTANCE_TIMESTAMP', payload: { offerId, timestamp } });
 
-      console.log(`🌐 [ACCEPT] Checking network status: ${isOffline ? 'OFFLINE' : 'ONLINE'}`);
       
       if (isOffline) {
-        console.log(`📴 [ACCEPT] Offline - adding to sync queue`);
         // Add to sync queue if offline
         const action: PendingAction = {
           id: `accept_${offerId}_${Date.now()}`,
@@ -487,15 +469,11 @@ export const OfferProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           retryCount: 0,
         };
         dispatch({ type: 'ADD_TO_SYNC_QUEUE', payload: action });
-        console.log(`📴 [ACCEPT] Added to sync queue:`, action);
       } else {
-        console.log(`🌐 [ACCEPT] Online - calling API immediately`);
         // Try to sync immediately
         try {
-          await mockApiAcceptOffer(offerId);
-          console.log(`✅ [ACCEPT] API call successful`);
+          await apiAcceptOffer(offerId);
         } catch (error) {
-          console.warn(`⚠️ [ACCEPT] API call failed, adding to sync queue:`, error);
           // If sync fails, add to queue for retry
           const action: PendingAction = {
             id: `accept_${offerId}_${Date.now()}`,
@@ -505,13 +483,10 @@ export const OfferProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             retryCount: 0,
           };
           dispatch({ type: 'ADD_TO_SYNC_QUEUE', payload: action });
-          console.log(`📦 [ACCEPT] Added to sync queue after API failure:`, action);
         }
       }
       
-      console.log(`🎉 [ACCEPT] Accept offer flow completed successfully for: ${offerId}`);
     } catch (error) {
-      console.error(`❌ [ACCEPT] Failed to accept offer ${offerId}:`, error);
       throw error;
     }
   }, [state.offers, state.offerStatuses, isOffline]);
@@ -544,7 +519,7 @@ export const OfferProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } else {
         // Try to sync immediately
         try {
-          await mockApiDeclineOffer(offerId);
+          await apiDeclineOffer(offerId);
         } catch (error) {
           // If sync fails, add to queue for retry
           const action: PendingAction = {
@@ -555,11 +530,9 @@ export const OfferProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             retryCount: 0,
           };
           dispatch({ type: 'ADD_TO_SYNC_QUEUE', payload: action });
-          console.warn('Failed to sync decline offer, added to queue:', error);
         }
       }
     } catch (error) {
-      console.error('Failed to decline offer:', error);
       throw error;
     }
   }, [state.offers, state.offerStatuses, isOffline]);
@@ -593,7 +566,6 @@ export const OfferProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return true;
     } catch (error) {
-      console.error('Failed to undo accept:', error);
       return false;
     }
   }, [canUndoAccept, state.syncQueue]);
@@ -602,7 +574,6 @@ export const OfferProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       dispatch({ type: 'ADD_OFFER', payload: offer });
     } catch (error) {
-      console.error('Failed to add offer:', error);
       throw error;
     }
   }, []);
@@ -631,33 +602,35 @@ export const OfferProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         dispatch({ type: 'EXPIRE_OFFERS', payload: { expiredOfferIds } });
       }
     } catch (error) {
-      console.error('Failed to check expired offers:', error);
     }
   }, [state.offers, state.offerStatuses]);
 
   const retrySyncQueue = useCallback(async (): Promise<void> => {
     if (isOffline || state.syncQueue.length === 0) return;
+    
+    console.log(`🔄 [Offers] Retrying sync queue (${state.syncQueue.length} items)`);
 
     const actionsToRetry = [...state.syncQueue];
 
     for (const action of actionsToRetry) {
       try {
         if (action.type === 'accept') {
-          await mockApiAcceptOffer(action.offerId);
+          await apiAcceptOffer(action.offerId);
         } else if (action.type === 'decline') {
-          await mockApiDeclineOffer(action.offerId);
+          await apiDeclineOffer(action.offerId);
         }
 
         // Success - remove from queue
+        console.log(`✅ [Offers] Synced ${action.type} action for offer ${action.offerId}`);
         dispatch({ type: 'REMOVE_FROM_SYNC_QUEUE', payload: { actionId: action.id } });
       } catch (error) {
+        console.error(`❌ [Offers] Failed to sync ${action.type} action:`, error);
         // Failure - increment retry count
         const newRetryCount = action.retryCount + 1;
         
         if (newRetryCount >= 3) {
           // Max retries reached - remove from queue
           dispatch({ type: 'REMOVE_FROM_SYNC_QUEUE', payload: { actionId: action.id } });
-          console.error(`Max retries reached for action ${action.id}:`, error);
         } else {
           // Update retry count
           dispatch({
@@ -688,6 +661,7 @@ export const OfferProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     hasPendingSync,
     
     // Methods
+    fetchOffers,
     acceptOffer,
     declineOffer,
     undoAccept,

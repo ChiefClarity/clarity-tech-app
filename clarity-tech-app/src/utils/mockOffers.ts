@@ -53,9 +53,9 @@ export const addMockOffersToContext = async (addOffer: (offer: Offer) => Promise
     try {
       await addOffer(offer);
     } catch (error) {
-      console.error('Failed to add mock offer:', offer.id, error);
+      // Failed to add mock offer
     }
   }
   
-  console.log(`Added ${mockOffers.length} mock offers for testing`);
+  // Mock offers added
 };

@@ -7,7 +7,7 @@ export const ROUTES = {
   // Root Stack Routes
   AUTH: 'Auth' as const,
   MAIN: 'Main' as const,
-  ONBOARDING_FLOW: 'OnboardingFlow' as const,
+  NEW_ONBOARDING_FLOW: 'NewOnboardingFlow' as const,
   
   // Auth Stack Routes
   LOGIN: 'Login' as const,
@@ -56,11 +56,14 @@ export const TAB_LABELS = {
 export type RootStackParamList = {
   [ROUTES.AUTH]: undefined;
   [ROUTES.MAIN]: undefined;
-  [ROUTES.ONBOARDING_FLOW]: { 
+  [ROUTES.NEW_ONBOARDING_FLOW]: { 
     customerId?: string;
     offerId?: string;
     customerName?: string;
     customerAddress?: string;
+    customer?: any;
+    session?: any;
+    testMode?: boolean;
   };
   [ROUTES.ACCEPTED_ONBOARDINGS]: undefined;
 };

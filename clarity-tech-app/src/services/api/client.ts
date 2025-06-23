@@ -30,15 +30,41 @@ class ApiClient {
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
+        
+        // Debug logging
+        console.log(`🔵 [API Request] ${config.method?.toUpperCase()} ${config.url}`, {
+          headers: config.headers,
+          data: config.data,
+          params: config.params,
+        });
+        
         return config;
       },
-      (error) => Promise.reject(error)
+      (error) => {
+        console.error('🔴 [API Request Error]', error);
+        return Promise.reject(error);
+      }
     );
 
     // Response interceptor for error handling and token refresh
     this.client.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        // Debug logging for successful responses
+        console.log(`🟢 [API Response] ${response.config.method?.toUpperCase()} ${response.config.url}`, {
+          status: response.status,
+          data: response.data,
+        });
+        return response;
+      },
       async (error: AxiosError) => {
+        // Debug logging for errors
+        console.error(`🔴 [API Response Error] ${error.config?.method?.toUpperCase()} ${error.config?.url}`, {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          message: error.message,
+        });
+        
         const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
         
         if (error.response?.status === 401 && !originalRequest._retry) {
@@ -57,12 +83,15 @@ class ApiClient {
           originalRequest._retry = true;
           this.isRefreshing = true;
 
+          console.log('🔄 [API] Attempting token refresh...');
+
           try {
             // Try to refresh token
             const { authService } = await import('./auth');
             const refreshResult = await authService.refreshToken();
             
             if (refreshResult.success && refreshResult.data) {
+              console.log('✅ [API] Token refresh successful');
               const newToken = refreshResult.data.token;
               
               // Process failed queue
@@ -80,6 +109,11 @@ class ApiClient {
               await authTokenStorage.clearAllTokens();
               await AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA);
               
+              // Emit auth failure event for app to handle navigation
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('auth:failed'));
+              }
+              
               // Reject all queued requests
               this.failedQueue.forEach(({ reject }) => reject(error));
               this.failedQueue = [];
@@ -90,6 +124,11 @@ class ApiClient {
             // Refresh failed - clear auth data
             await authTokenStorage.clearAllTokens();
             await AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA);
+            
+            // Emit auth failure event for app to handle navigation
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('auth:failed'));
+            }
             
             this.failedQueue.forEach(({ reject }) => reject(refreshError));
             this.failedQueue = [];
