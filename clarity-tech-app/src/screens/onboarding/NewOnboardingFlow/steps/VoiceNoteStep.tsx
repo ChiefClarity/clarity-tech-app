@@ -228,15 +228,44 @@ export const VoiceNoteStep: React.FC = () => {
   };
   
   const handleNext = async () => {
-    if (!hasRecorded) {
-      webAlert.alert('Recording Required', 'Please record a voice note before continuing.');
+    // MANDATORY CHECK - Cannot skip voice note
+    if (!hasRecorded || !audioBlob) {
+      webAlert.alert(
+        'Voice Note Required',
+        'A voice note is REQUIRED to complete the onboarding. Please record at least 30 seconds describing the pool condition, equipment issues, and any special circumstances that affect pricing.'
+      );
+      return;
+    }
+    
+    // Check minimum duration (30 seconds)
+    if (recordingDuration < 30) {
+      webAlert.alert(
+        'Recording Too Short',
+        `Please record at least 30 seconds. Your recording was only ${recordingDuration} seconds. Include details about pool condition, equipment, and pricing factors.`
+      );
+      return;
+    }
+    
+    // Check maximum duration (3 minutes)
+    if (recordingDuration > 180) {
+      webAlert.alert(
+        'Recording Too Long',
+        'Please keep your recording under 3 minutes. You can re-record if needed.'
+      );
       return;
     }
     
     try {
+      // Save voice note data
+      await recordVoiceNote(
+        URL.createObjectURL(audioBlob),
+        recordingDuration
+      );
+      
+      // Complete session - this will trigger AI analysis
       await completeSession();
     } catch (err) {
-      webAlert.alert('Error', 'Failed to complete onboarding. Please try again.');
+      webAlert.alert('Error', 'Failed to save voice note. Please try again.');
     }
   };
   
@@ -271,17 +300,22 @@ export const VoiceNoteStep: React.FC = () => {
         <View style={styles.voiceCard}>
           {/* Instructions */}
           <View style={styles.instructionsBox}>
-          <Text style={styles.instructionsTitle}>What to Include:</Text>
+          <Text style={styles.instructionsTitle}>
+            Voice Note Required (30 seconds - 3 minutes)
+          </Text>
           <View style={styles.instructionsList}>
             <Text style={styles.instructionItem}>• Overall pool condition and cleanliness</Text>
-            <Text style={styles.instructionItem}>• Any equipment issues or concerns</Text>
-            <Text style={styles.instructionItem}>• Special features or automation</Text>
-            <Text style={styles.instructionItem}>• Maintenance recommendations</Text>
-            <Text style={styles.instructionItem}>• Customer-specific observations</Text>
+            <Text style={styles.instructionItem}>• Equipment issues or concerns</Text>
+            <Text style={styles.instructionItem}>• Special circumstances affecting pricing</Text>
+            <Text style={styles.instructionItem}>• Tree coverage and debris load</Text>
+            <Text style={styles.instructionItem}>• Access challenges or safety issues</Text>
+            <Text style={styles.instructionItem}>• Customer-specific requirements</Text>
           </View>
-          <View style={styles.durationInfo}>
-            <Ionicons name="time-outline" size={16} color={theme.colors.gray} />
-            <Text style={styles.durationText}>30 seconds - 3 minutes</Text>
+          <View style={styles.mandatoryNotice}>
+            <Ionicons name="alert-circle" size={16} color={theme.colors.error} />
+            <Text style={styles.mandatoryText}>
+              This step is MANDATORY for AI pricing analysis
+            </Text>
           </View>
         </View>
         
@@ -552,5 +586,19 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.small.fontSize,
     color: theme.colors.warning,
     textAlign: 'center',
+  },
+  mandatoryNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    paddingTop: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  mandatoryText: {
+    fontSize: theme.typography.small.fontSize,
+    color: theme.colors.error,
+    fontWeight: '600',
+    flex: 1,
   },
 });

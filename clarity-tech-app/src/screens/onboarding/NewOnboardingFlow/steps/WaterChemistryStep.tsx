@@ -13,6 +13,7 @@ import { AIInsightsBox } from '../../../../components/common/AIInsightsBox';
 import { useOnboarding } from '../../../../contexts/OnboardingContext';
 import { theme } from '../../../../styles/theme';
 import { webAlert } from '../utils/webAlert';
+import { AIInsightsService } from '../../../../services/ai/aiInsights';
 
 // EXACT validation schema from current implementation
 const waterChemistrySchema = z.object({
@@ -58,6 +59,8 @@ export const WaterChemistryStep: React.FC = () => {
     confidence?: number;
     message?: string;
   } | null>(null);
+  const [aiInsights, setAiInsights] = useState<string[]>([]);
+  const [isAnalyzingInsights, setIsAnalyzingInsights] = useState(false);
   
   const { control, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = useForm<WaterChemistryData>({
     resolver: zodResolver(waterChemistrySchema),
@@ -124,8 +127,18 @@ export const WaterChemistryStep: React.FC = () => {
         ...allValues,
         [field]: finalValue,
       });
+      
+      // Get AI insights after saving
+      setIsAnalyzingInsights(true);
+      const insights = await AIInsightsService.getWaterChemistryInsights({
+        ...allValues,
+        [field]: finalValue,
+      });
+      setAiInsights(insights);
+      setIsAnalyzingInsights(false);
     } catch (error) {
       console.error('Failed to save water chemistry:', error);
+      setIsAnalyzingInsights(false);
     }
   };
   
@@ -379,7 +392,11 @@ export const WaterChemistryStep: React.FC = () => {
         </View>
         
         {/* AI Insights */}
-        <AIInsightsBox stepName="waterChemistry" />
+        <AIInsightsBox 
+          stepName="waterChemistry" 
+          insights={aiInsights}
+          isAnalyzing={isAnalyzingInsights}
+        />
       </ScrollView>
     </View>
   );

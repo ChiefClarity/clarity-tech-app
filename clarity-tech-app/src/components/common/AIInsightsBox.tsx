@@ -1,23 +1,37 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 
 interface AIInsightsBoxProps {
-  insight?: string;
-  stepName: string;
+  insights?: string[];
+  isAnalyzing?: boolean;
+  stepName?: string;
 }
 
-export const AIInsightsBox: React.FC<AIInsightsBoxProps> = ({ insight, stepName }) => {
-  const defaultInsights = {
-    customer: 'AI will analyze customer data to identify service preferences and pool history.',
-    waterChemistry: 'AI detected balanced water chemistry. pH and chlorine levels are within ideal ranges for a healthy pool.',
-    poolDetails: 'Pool dimensions and features analyzed. AI recommends weekly service based on size and environment.',
-    equipment: 'Equipment analysis complete. All components functioning properly with routine maintenance recommended.',
-    voiceNote: 'Voice note will be transcribed and analyzed for key service insights.',
+export const AIInsightsBox: React.FC<AIInsightsBoxProps> = ({ 
+  insights,
+  isAnalyzing = false,
+  stepName 
+}) => {
+  const defaultInsightsByStep = {
+    customer: ['AI will analyze customer data to identify service preferences and pool history.'],
+    waterChemistry: ['AI detected balanced water chemistry. pH and chlorine levels are within ideal ranges for a healthy pool.'],
+    poolDetails: ['Pool dimensions and features analyzed. AI recommends weekly service based on size and environment.'],
+    equipment: ['Equipment analysis complete. All components functioning properly with routine maintenance recommended.'],
+    voiceNote: ['Voice note will be transcribed and analyzed for key service insights.'],
   };
-
+  
+  const defaultInsights = [
+    'AI analysis will provide insights here',
+    'Complete this section to see recommendations'
+  ];
+  
+  const displayInsights = insights && insights.length > 0 
+    ? insights 
+    : (stepName && defaultInsightsByStep[stepName] ? defaultInsightsByStep[stepName] : defaultInsights);
+  
   return (
     <View style={styles.aiInsightContainer}>
       <LinearGradient
@@ -27,10 +41,16 @@ export const AIInsightsBox: React.FC<AIInsightsBoxProps> = ({ insight, stepName 
         <View style={styles.aiHeader}>
           <Ionicons name="sparkles" size={20} color={theme.colors.aiPink} />
           <Text style={styles.aiTitle}>AI Insights</Text>
+          {isAnalyzing && <ActivityIndicator size="small" color={theme.colors.aiPink} style={styles.loader} />}
         </View>
-        <Text style={styles.aiText}>
-          {insight || defaultInsights[stepName] || 'AI analyzing data...'}
-        </Text>
+        <View style={styles.insightsList}>
+          {displayInsights.map((insight, index) => (
+            <View key={index} style={styles.insightRow}>
+              <Text style={styles.bullet}>•</Text>
+              <Text style={styles.aiText}>{insight}</Text>
+            </View>
+          ))}
+        </View>
       </LinearGradient>
     </View>
   );
@@ -56,10 +76,26 @@ const styles = StyleSheet.create({
     color: theme.colors.aiPink,
     marginLeft: theme.spacing.sm,
   },
+  loader: {
+    marginLeft: 'auto',
+  },
+  insightsList: {
+    gap: theme.spacing.xs,
+  },
+  insightRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  bullet: {
+    fontSize: theme.typography.small.fontSize,
+    color: theme.colors.aiPink,
+    marginRight: theme.spacing.xs,
+  },
   aiText: {
     fontSize: theme.typography.small.fontSize,
-    color: theme.colors.text,
+    color: theme.colors.darkBlue,
     lineHeight: 20,
+    flex: 1,
   },
 });
 

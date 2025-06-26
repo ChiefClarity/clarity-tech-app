@@ -21,6 +21,8 @@ import { useOnboarding } from '../../../../contexts/OnboardingContext';
 import { theme } from '../../../../styles/theme';
 import { webAlert } from '../utils/webAlert';
 import { FEATURES, AI_ENDPOINTS } from '../../../../config/features';
+import { AIInsightsService } from '../../../../services/ai/aiInsights';
+import { apiClient } from '../../../../services/api/client';
 
 // Constants
 const MAX_SKIMMERS = 10;
@@ -1066,6 +1068,8 @@ export const PoolDetailsStep: React.FC = () => {
   const [satelliteAnalyzed, setSatelliteAnalyzed] = useState(false);
   const [satelliteAnalysisResult, setSatelliteAnalysisResult] = useState<any>(null);
   const [calcTrigger, setCalcTrigger] = useState(0);
+  const [aiInsights, setAiInsights] = useState<string[]>([]);
+  const [isAnalyzingInsights, setIsAnalyzingInsights] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const sectionRefs = useRef<{ [key: string]: View | null }>({});
   
@@ -1345,60 +1349,103 @@ export const PoolDetailsStep: React.FC = () => {
 
   const handleSatelliteAnalysis = async () => {
     const customerAddress = session?.customerInfo?.address;
-    if (!customerAddress) {
-      webAlert.alert('Address Required', 'Customer address is needed for satellite analysis.');
+    const customerCity = session?.customerInfo?.city;
+    const customerState = session?.customerInfo?.state;
+    
+    if (!customerAddress || !customerCity || !customerState) {
+      webAlert.alert('Address Required', 'Complete customer address is needed for satellite analysis.');
       return;
     }
 
     setIsAnalyzingSatellite(true);
     try {
-      const result = await analyzeSatelliteImage(customerAddress);
+      // Get customer address from context
+      const fullAddress = `${customerAddress}, ${customerCity}, ${customerState}`;
       
-      // CRITICAL: Update values with proper form state management
-      const updates = {
-        shape: result.shape,
-        length: result.length,
-        width: result.width,
-        surfaceArea: result.surfaceArea,
-        poolType: result.poolType || poolType
-      };
-      
-      // Batch update all values
-      Object.entries(updates).forEach(([field, value]) => {
-        setValue(field as keyof PoolDetailsData, value, { 
-          shouldValidate: true, 
-          shouldDirty: true,
-          shouldTouch: true 
+      // Use real API if enabled
+      if (FEATURES.USE_REAL_AI) {
+        const response = await apiClient.post('/api/ai/analyze-pool-satellite', {
+          sessionId: session?.id,
+          address: fullAddress
         });
-      });
+        
+        const result = (response.data as any).analysis;
+        
+        // Auto-fill detected dimensions if available
+        if (result.poolDimensions) {
+          setValue('length', result.poolDimensions.length, { shouldValidate: true });
+          setValue('width', result.poolDimensions.width, { shouldValidate: true });
+          
+          if (result.shape) {
+            setValue('shape', result.shape, { shouldValidate: true });
+          }
+        }
+        
+        // Update insights
+        setIsAnalyzingInsights(true);
+        const insights = await AIInsightsService.getPoolDetailsInsights(
+          getValues(),
+          result
+        );
+        setAiInsights(insights);
+        setIsAnalyzingInsights(false);
+        
+        setSatelliteAnalysisResult({
+          success: true,
+          confidence: Math.round((result.confidence || 0.85) * 100),
+          message: `Pool detected: ${result.poolDimensions?.length || '??'}' x ${result.poolDimensions?.width || '??'}' ${result.shape || 'pool'}`
+        });
+      } else {
+        // Mock mode
+        const result = await analyzeSatelliteImage(fullAddress);
+        
+        // CRITICAL: Update values with proper form state management
+        const updates = {
+          shape: result.shape,
+          length: result.length,
+          width: result.width,
+          surfaceArea: result.surfaceArea,
+          poolType: result.poolType || poolType
+        };
+        
+        // Batch update all values
+        Object.entries(updates).forEach(([field, value]) => {
+          setValue(field as keyof PoolDetailsData, value, { 
+            shouldValidate: true, 
+            shouldDirty: true,
+            shouldTouch: true 
+          });
+        });
+        
+        // CRITICAL: Force form to re-render by resetting with current values
+        const allValues = getValues();
+        reset({
+          ...allValues,
+          ...updates
+        }, {
+          keepValues: false,
+          keepDirty: true,
+          keepErrors: true
+        });
+        
+        // Force calculation update
+        setCalcTrigger(prev => prev + 1);
+        
+        setSatelliteAnalyzed(true);
+        setSatelliteAnalysisResult({
+          success: true,
+          confidence: Math.round(result.confidence * 100),
+          surfaceArea: result.surfaceArea,
+          message: `${result.poolType === 'aboveGround' ? 'Above-ground' : 'In-ground'} pool detected: ${result.length}' x ${result.width}' ${result.shape}`
+        });
+      }
       
-      // CRITICAL: Force form to re-render by resetting with current values
-      const allValues = getValues();
-      reset({
-        ...allValues,
-        ...updates
-      }, {
-        keepValues: false,
-        keepDirty: true,
-        keepErrors: true
-      });
-      
-      // Force calculation update
-      setCalcTrigger(prev => prev + 1);
       
       setSatelliteAnalyzed(true);
-      setSatelliteAnalysisResult({
-        success: true,
-        confidence: Math.round(result.confidence * 100),
-        surfaceArea: result.surfaceArea,
-        message: `${result.poolType === 'aboveGround' ? 'Above-ground' : 'In-ground'} pool detected: ${result.length}' x ${result.width}' ${result.shape}`
-      });
-      
-      console.log('[SATELLITE] Analysis complete:', updates);
       
       // Auto-save after short delay
       setTimeout(() => {
-        handleFieldBlur('satellite-analysis', allValues);
+        handleFieldBlur('satellite-analysis', getValues());
       }, 100);
       
       setTimeout(() => setSatelliteAnalysisResult(null), 5000);
@@ -1556,7 +1603,11 @@ export const PoolDetailsStep: React.FC = () => {
           </View>
         ))}
         
-        <AIInsightsBox stepName="poolDetails" />
+        <AIInsightsBox 
+          stepName="poolDetails" 
+          insights={aiInsights}
+          isAnalyzing={isAnalyzingInsights}
+        />
       </ScrollView>
     </View>
       </FormProvider>

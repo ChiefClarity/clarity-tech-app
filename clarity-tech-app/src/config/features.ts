@@ -1,6 +1,6 @@
 export const FEATURES = {
-  // AI Features - Set to false for mock mode, true for real API integration
-  USE_REAL_AI: false,
+  // AI Features - Set to true when API keys are configured
+  USE_REAL_AI: true, // Set to true when ready for production
   
   // Individual AI feature flags
   AI_WATER_CHEMISTRY: true,
@@ -8,14 +8,17 @@ export const FEATURES = {
   AI_EQUIPMENT_DETECTION: true,
   AI_ENVIRONMENT_ANALYSIS: true,
   AI_VOICE_TRANSCRIPTION: true,
+  AI_REPORT_GENERATION: true,
+  AI_SATELLITE_ANALYSIS: true, // NEW - Google Maps
   
   // Photo capture settings
   PHOTO_QUALITY: 0.8,
   MAX_PHOTO_SIZE: 1920,
   
-  // Voice recording settings
-  VOICE_MIN_DURATION: 30, // seconds
-  VOICE_MAX_DURATION: 180, // 3 minutes
+  // Voice recording settings - MANDATORY
+  VOICE_MIN_DURATION: 30, // 30 seconds MANDATORY
+  VOICE_MAX_DURATION: 180, // 3 minutes maximum
+  VOICE_REQUIRED: true, // Cannot complete without voice note
   
   // API timeouts
   AI_ANALYSIS_TIMEOUT: 5000, // 5 seconds

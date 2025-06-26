@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { FEATURES } from '../config/features';
+import { apiClient } from '../services/api/client';
+import { useNavigation } from '@react-navigation/native';
 
 // CRITICAL: These MUST match existing field names exactly
 interface CustomerInfo {
@@ -201,6 +204,7 @@ interface OnboardingContextType {
 const OnboardingContext = createContext<OnboardingContextType | null>(null);
 
 export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const navigation = useNavigation<any>();
   const [session, setSession] = useState<OnboardingSession | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -456,28 +460,53 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   
   // Complete session
   const completeSession = async () => {
-    if (!session || !session.voiceNote) return;
+    if (!session) return;
     
-    setLoading(true);
+    // MANDATORY: Validate voice note is present
+    if (!session.voiceNote || !session.voiceNote.uri || !session.voiceNote.duration) {
+      throw new Error('Voice note is required to complete onboarding');
+    }
+    
+    // Validate minimum duration
+    if (session.voiceNote.duration < 30) {
+      throw new Error('Voice note must be at least 30 seconds long');
+    }
+    
+    setSaving(true);
     try {
-      // Mark as completed
-      const completed = {
-        ...session,
+      // Update status
+      const updated = { 
+        ...session, 
         status: 'completed' as const,
-        completedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString()
       };
       
-      // Clear local draft
-      await AsyncStorage.removeItem(`onboarding_session_${session.customerId}`);
+      // Save to API
+      const response = await apiClient.post(`/api/onboarding/sessions/${session.id}/complete`, {
+        sessionData: updated,
+        includeVoiceNote: true,
+      });
       
-      // Update state
-      setSession(completed);
+      // Trigger AI analysis - this is the key step!
+      if (FEATURES.USE_REAL_AI) {
+        await apiClient.post(`/api/ai/analysis/session/${session.id}`);
+      }
+      
+      // Clear local data
+      await AsyncStorage.removeItem(`onboarding_session_${session.customerId}`);
+      setSession(null);
+      
+      // Navigate to completion screen
+      navigation.navigate('OnboardingComplete', {
+        sessionId: session.id,
+        message: 'AI is analyzing the pool data. Results will be available shortly.',
+      });
       
     } catch (err: any) {
       setError(err.message);
       throw err;
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
   

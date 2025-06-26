@@ -15,6 +15,9 @@ import { AIPhotoAnalyzer } from '../../../../components/ui/AIPhotoAnalyzer';
 import { AIInsightsBox } from '../../../../components/common/AIInsightsBox';
 import { theme } from '../../../../styles/theme';
 import { webAlert } from '../utils/webAlert';
+import { GeminiVisionService } from '../../../../services/ai/geminiVision';
+import { FEATURES } from '../../../../config/features';
+import { AIInsightsService } from '../../../../services/ai/aiInsights';
 
 // CRITICAL: Equipment sections in EXACT order
 const EQUIPMENT_SECTIONS = [
@@ -87,6 +90,8 @@ export const EquipmentStep: React.FC = () => {
     confidence?: number;
     message?: string;
   } | null>(null);
+  const [aiInsights, setAiInsights] = useState<string[]>([]);
+  const [isAnalyzingInsights, setIsAnalyzingInsights] = useState(false);
   const [equipmentData, setEquipmentData] = useState(session?.equipment || {
     photos: [],
     // Initialize all fields
@@ -152,33 +157,69 @@ export const EquipmentStep: React.FC = () => {
   const handleEquipmentAnalysis = async (photos: string[]) => {
     setAnalyzing(true);
     try {
-      // Store photos
+      // Store photos first
       const updatedData = { ...equipmentData, photos };
       setEquipmentData(updatedData);
       await updateEquipment(updatedData);
       
-      // Add photos to session
-      for (const photo of photos) {
-        await addPhoto(photo);
+      // Use real AI if enabled
+      if (FEATURES.USE_REAL_AI && photos.length > 0) {
+        // Analyze first photo with Gemini Vision
+        const analysis = await GeminiVisionService.analyzeEquipmentPhoto(
+          photos[0],
+          session?.id || 'temp-session'
+        );
+        
+        // Auto-fill form with AI results
+        if (analysis.equipmentType.toLowerCase().includes('pump')) {
+          setEquipmentData(prev => ({
+            ...prev,
+            pumpManufacturer: analysis.brand || prev.pumpManufacturer,
+            pumpModel: analysis.model || prev.pumpModel,
+            pumpCondition: analysis.condition || prev.pumpCondition,
+          }));
+        } else if (analysis.equipmentType.toLowerCase().includes('filter')) {
+          setEquipmentData(prev => ({
+            ...prev,
+            filterManufacturer: analysis.brand || prev.filterManufacturer,
+            filterModel: analysis.model || prev.filterModel,
+            filterCondition: analysis.condition || prev.filterCondition,
+          }));
+        }
+        
+        setAnalysisComplete(true);
+        setAnalysisResult({
+          success: true,
+          confidence: Math.round(analysis.confidence.overall),
+          message: `${analysis.equipmentType} identified with ${Math.round(analysis.confidence.overall)}% confidence`,
+        });
+        
+        // Get AI insights after successful equipment analysis
+        setIsAnalyzingInsights(true);
+        const insights = await AIInsightsService.getEquipmentInsights({
+          identifiedEquipment: analysis,
+          manualEntries: equipmentData
+        });
+        setAiInsights(insights);
+        setIsAnalyzingInsights(false);
+      } else {
+        // Mock mode
+        setAnalysisComplete(true);
+        setAnalysisResult({
+          success: true,
+          confidence: 95,
+          message: 'Equipment analysis complete (demo mode)',
+        });
       }
-      
-      setAnalysisComplete(true);
-      setAnalysisResult({
-        success: true,
-        confidence: 95,
-        message: 'Equipment analysis complete'
-      });
-      setTimeout(() => setAnalysisResult(null), 5000);
-      
     } catch (error) {
       console.error('Equipment analysis failed:', error);
       setAnalysisResult({
         success: false,
-        message: 'Analysis failed. Please complete fields manually.'
+        message: 'AI analysis unavailable. Please complete fields manually.',
       });
-      setTimeout(() => setAnalysisResult(null), 5000);
     } finally {
       setAnalyzing(false);
+      setTimeout(() => setAnalysisResult(null), 5000);
     }
   };
   
@@ -318,7 +359,11 @@ export const EquipmentStep: React.FC = () => {
       ))}
       
       {/* AI Insights */}
-      <AIInsightsBox stepName="equipment" />
+      <AIInsightsBox 
+        stepName="equipment" 
+        insights={aiInsights}
+        isAnalyzing={isAnalyzingInsights}
+      />
       
       {/* Bottom padding */}
       <View style={{ height: 100 }} />
