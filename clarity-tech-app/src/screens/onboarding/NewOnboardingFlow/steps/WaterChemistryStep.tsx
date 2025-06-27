@@ -213,6 +213,9 @@ export const WaterChemistryStep: React.FC = () => {
                 setAnalyzingImage(true);
                 console.log('📸 Starting AI analysis of test strip...');
                 
+                // Get session ID from onboarding context
+                const sessionId = session?.id || `session-${Date.now()}`;
+                
                 // Convert to base64 if needed
                 let imageData = photos[0];
                 if (!imageData.startsWith('data:')) {
@@ -226,56 +229,48 @@ export const WaterChemistryStep: React.FC = () => {
                   });
                 }
                 
-                // Call REAL AI service
-                const result = await aiService.analyzeTestStrip(imageData);
+                // Call AI service with sessionId
+                const result = await aiService.analyzeTestStrip(imageData, sessionId);
                 
                 if (result.success && result.data) {
                   console.log('✅ AI Analysis successful:', result.data);
                   
                   const { readings } = result.data;
                   
-                  // Update ALL form values with AI results
-                  if (readings.freeChlorine !== null) setValue('chlorine', readings.freeChlorine);
-                  if (readings.ph !== null) setValue('ph', readings.ph);
-                  if (readings.alkalinity !== null) setValue('alkalinity', readings.alkalinity);
-                  if (readings.cyanuricAcid !== null) setValue('cyanuricAcid', readings.cyanuricAcid);
-                  if (readings.calcium !== null) setValue('calcium', readings.calcium);
-                  if (readings.salt !== null) setValue('salt', readings.salt);
-                  if (readings.tds !== null) setValue('tds', readings.tds);
-                  if (readings.phosphates !== null) setValue('phosphates', readings.phosphates);
-                  if (readings.copper !== null) setValue('copper', readings.copper);
-                  if (readings.iron !== null) setValue('iron', readings.iron);
+                  // Update form values with AI results - handle null values
+                  const fieldMappings = {
+                    chlorine: readings.freeChlorine,
+                    ph: readings.ph,
+                    alkalinity: readings.alkalinity,
+                    cyanuricAcid: readings.cyanuricAcid,
+                    calcium: readings.calcium,
+                    salt: readings.salt,
+                    tds: readings.tds,
+                    copper: readings.copper,
+                    iron: readings.iron,
+                    phosphates: readings.phosphates
+                  };
                   
-                  // Show AI insights
-                  if (result.data.analysis) {
-                    const insights = await aiService.generateWaterChemistryInsights(readings);
-                    if (insights.success && insights.data) {
-                      setAiInsights([
-                        insights.data.insights?.summary || 'Analysis complete',
-                        ...(insights.data.insights?.recommendations || []),
-                        ...(insights.data.insights?.immediateConcerns || [])
-                      ]);
+                  Object.entries(fieldMappings).forEach(([field, value]) => {
+                    if (value !== null && value !== undefined) {
+                      setValue(field as keyof WaterChemistryData, value);
                     }
-                  }
-                  
-                  // Set success message
-                  setAnalysisResult({
-                    success: true,
-                    confidence: Math.round((result.data.analysis?.confidence || 0.95) * 100),
-                    message: 'Test strip analyzed successfully'
                   });
                   
-                  // Save the values immediately
-                  const values = getValues();
-                  await updateWaterChemistry(values);
+                  // Save the image URL if provided
+                  if (result.data.imageUrl) {
+                    setValue('testStripImageUrl' as any, result.data.imageUrl);
+                  }
                   
-                  // Auto-hide message after 5 seconds
-                  setTimeout(() => {
-                    setAnalysisResult(null);
-                  }, 5000);
+                  Alert.alert(
+                    'AI Analysis Complete',
+                    'Test strip values have been automatically filled. Please review and adjust if needed.',
+                    [{ text: 'OK' }]
+                  );
                 } else {
-                  console.error('❌ AI Analysis failed:', result.error);
-                  Alert.alert('Analysis Failed', 'Unable to analyze test strip. Please try again.');
+                  const errorMsg = result.error || 'Unable to analyze test strip';
+                  console.error('❌ AI Analysis failed:', errorMsg);
+                  Alert.alert('Analysis Failed', errorMsg);
                 }
               } catch (error) {
                 console.error('❌ AI Analysis error:', error);

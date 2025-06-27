@@ -1,24 +1,22 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
-  TextInput,
   Text,
+  TextInput,
   StyleSheet,
   Animated,
   TouchableOpacity,
   TextInputProps,
   Platform,
 } from 'react-native';
-import { theme } from '../../styles/theme';
+import { Ionicons } from '@expo/vector-icons';
 
 interface ModernInputProps extends TextInputProps {
-  label: string;
+  label?: string;
   error?: string;
-  icon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
+  icon?: keyof typeof Ionicons.glyphMap;
+  rightIcon?: keyof typeof Ionicons.glyphMap;
   onRightIconPress?: () => void;
-  idealRange?: { min: number; max: number; ideal?: number };
-  showRangeIndicator?: boolean;
 }
 
 export const ModernInput: React.FC<ModernInputProps> = ({
@@ -30,157 +28,111 @@ export const ModernInput: React.FC<ModernInputProps> = ({
   value,
   onFocus,
   onBlur,
-  idealRange,
-  showRangeIndicator = false,
+  style,
   ...props
 }) => {
   const [isFocused, setIsFocused] = useState(false);
-  const animatedLabel = useRef(new Animated.Value(value ? 1 : 0)).current;
-  const animatedBorder = useRef(new Animated.Value(0)).current;
-  const inputRef = useRef<TextInput>(null);
+  const labelAnimation = useState(new Animated.Value(value ? 1 : 0))[0];
 
-  const getValueStatus = () => {
-    if (!idealRange || !value || !showRangeIndicator) return 'neutral';
-    const numValue = parseFloat(value.toString());
-    if (isNaN(numValue)) return 'neutral';
-    
-    if (numValue >= idealRange.min && numValue <= idealRange.max) {
-      return 'good';
-    }
-    return 'warning';
+  const handleFocus = (e: any) => {
+    setIsFocused(true);
+    Animated.timing(labelAnimation, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+    onFocus?.(e);
   };
 
-  const valueStatus = getValueStatus();
-
-  // Add this function to handle input styling
-  const getInputStyle = () => {
-    const baseStyle = [
-      styles.input,
-      icon && styles.inputWithIcon,
-      rightIcon && styles.inputWithRightIcon,
-    ];
-    
-    if (props.multiline) {
-      return [
-        ...baseStyle,
-        {
-          paddingTop: theme.spacing.md,
-          paddingBottom: theme.spacing.md,
-          paddingHorizontal: theme.spacing.md,
-          minHeight: props.numberOfLines ? props.numberOfLines * 24 + 32 : 96,
-          height: 'auto',
-          textAlignVertical: 'top' as const,
-          lineHeight: 22,
-        }
-      ];
-    }
-    
-    return baseStyle;
-  };
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(animatedLabel, {
-        toValue: isFocused || value ? 1 : 0,
-        duration: theme.animation.fast,
+  const handleBlur = (e: any) => {
+    setIsFocused(false);
+    if (!value) {
+      Animated.timing(labelAnimation, {
+        toValue: 0,
+        duration: 200,
         useNativeDriver: false,
-      }),
-      Animated.timing(animatedBorder, {
-        toValue: isFocused ? 1 : 0,
-        duration: theme.animation.fast,
-        useNativeDriver: false,
-      }),
-    ]).start();
-  }, [isFocused, value, animatedLabel, animatedBorder]);
-
-  const labelStyle = {
-    position: 'absolute' as const,
-    left: icon ? 40 : 16,
-    top: animatedLabel.interpolate({
-      inputRange: [0, 1],
-      outputRange: [20, 6], // Changed from [18, -8] to prevent cutoff
-    }),
-    fontSize: animatedLabel.interpolate({
-      inputRange: [0, 1],
-      outputRange: [14, 12],
-    }),
-    color: animatedLabel.interpolate({
-      inputRange: [0, 1],
-      outputRange: [theme.colors.gray, theme.colors.gray], // Keep consistent color
-    }),
-    backgroundColor: theme.colors.white,
-    paddingHorizontal: 4,
-    zIndex: 1,
-  };
-
-  const getBorderColor = () => {
-    if (error) return theme.colors.error;
-    // Remove focus styling - keep consistent border
-    if (valueStatus === 'good') return theme.colors.success;
-    if (valueStatus === 'warning') return theme.colors.warning;
-    return theme.colors.border;
-  };
-
-  const borderColor = animatedBorder.interpolate({
-    inputRange: [0, 1],
-    outputRange: [getBorderColor(), getBorderColor()],
-  });
-
-  const handleContainerPress = () => {
-    inputRef.current?.focus();
+      }).start();
+    }
+    onBlur?.(e);
   };
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        activeOpacity={1}
-        onPress={handleContainerPress}
-        style={styles.touchableContainer}
-      >
-        <Animated.View
-          style={[
-            styles.inputContainer,
-            { borderColor: getBorderColor() },
-            valueStatus === 'good' && styles.goodBorder,
-            valueStatus === 'warning' && styles.warningBorder,
-          ]}
-        >
-        {icon && <View style={styles.iconLeft}>{icon}</View>}
-          <TextInput
-            ref={inputRef}
-            style={getInputStyle()}
-            value={value}
-            onFocus={(e) => {
-              setIsFocused(true);
-              onFocus?.(e);
-            }}
-            onBlur={(e) => {
-              setIsFocused(false);
-              onBlur?.(e);
-            }}
-            {...props}
+      <View style={[
+        styles.inputContainer,
+        isFocused && styles.inputContainerFocused,
+        error && styles.inputContainerError,
+      ]}>
+        {icon && (
+          <Ionicons
+            name={icon}
+            size={20}
+            color={error ? '#ef4444' : isFocused ? '#0066CC' : '#6b7280'}
+            style={styles.leftIcon}
           />
-        <Animated.Text style={labelStyle}>{label}</Animated.Text>
+        )}
+        
+        {label && (
+          <Animated.Text
+            style={[
+              styles.label,
+              {
+                transform: [
+                  {
+                    translateY: labelAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -20],
+                    }),
+                  },
+                  {
+                    scale: labelAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [1, 0.85],
+                    }),
+                  },
+                ],
+              },
+              error && styles.labelError,
+            ]}
+          >
+            {label}
+          </Animated.Text>
+        )}
+        
+        <TextInput
+          value={value}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          style={[
+            styles.input,
+            icon && styles.inputWithIcon,
+            rightIcon && styles.inputWithRightIcon,
+            Platform.select({
+              web: styles.inputWeb,
+              default: {},
+            }),
+            style,
+          ]}
+          placeholderTextColor="#9ca3af"
+          {...props}
+        />
+        
         {rightIcon && (
           <TouchableOpacity
-            style={styles.iconRight}
             onPress={onRightIconPress}
-            activeOpacity={0.7}
+            style={styles.rightIconButton}
           >
-            {rightIcon}
+            <Ionicons
+              name={rightIcon}
+              size={20}
+              color={error ? '#ef4444' : '#6b7280'}
+            />
           </TouchableOpacity>
         )}
-        </Animated.View>
-      </TouchableOpacity>
-      {error && <Text style={styles.errorText}>{error}</Text>}
-      {showRangeIndicator && idealRange && (
-        <View style={styles.rangeIndicator}>
-          <Text style={[styles.rangeText, { color: getBorderColor() }]}>
-            {valueStatus === 'good' ? '✓ ' : valueStatus === 'warning' ? '⚠ ' : ''}
-            Range: {idealRange.min}-{idealRange.max}
-            {idealRange.ideal && ` (ideal: ${idealRange.ideal})`}
-          </Text>
-        </View>
+      </View>
+      
+      {error && (
+        <Text style={styles.errorText}>{error}</Text>
       )}
     </View>
   );
@@ -188,98 +140,81 @@ export const ModernInput: React.FC<ModernInputProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: theme.spacing.md,
-    marginTop: 8, // Add margin top to prevent label cutoff
+    marginBottom: 16,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
     borderWidth: 1,
-    borderRadius: theme.borderRadius.xl,
-    backgroundColor: theme.colors.white,
+    borderColor: '#e5e7eb',
+    paddingHorizontal: 16,
+    height: 56,
     position: 'relative',
-    overflow: 'visible',
-    minHeight: 64,
-    paddingTop: 20,
-    paddingBottom: 8,
-    // Web-specific: Remove ALL focus styles
+  },
+  inputContainerFocused: {
+    backgroundColor: '#ffffff',
+    borderColor: '#0066CC',
+    borderWidth: 2,
     ...Platform.select({
-      web: {
-        // Remove focus outline
-        '&:focus-within': {
-          outline: 'none',
-          boxShadow: 'none',
-        },
+      ios: {
+        shadowColor: '#0066CC',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
       },
-      default: {},
+      android: {
+        elevation: 3,
+      },
+      web: {
+        boxShadow: '0 2px 4px rgba(0, 102, 204, 0.1)',
+      },
     }),
+  },
+  inputContainerError: {
+    borderColor: '#ef4444',
+    backgroundColor: '#fef2f2',
   },
   input: {
     flex: 1,
-    height: 36,
-    paddingHorizontal: theme.spacing.md,
-    paddingTop: 0,
-    paddingBottom: 0,
-    fontSize: theme.typography.body.fontSize,
-    color: theme.colors.darkBlue,
+    fontSize: 16,
+    color: '#111827',
+    paddingVertical: 0,
+  },
+  inputWeb: {
+    outline: 'none',
+    borderWidth: 0,
     backgroundColor: 'transparent',
-    ...Platform.select({
-      web: {
-        // Remove ALL browser styles
-        outline: 'none !important' as any,
-        outlineWidth: '0 !important' as any,
-        outlineOffset: '0 !important' as any,
-        boxShadow: 'none !important' as any,
-        border: 'none !important' as any,
-        WebkitAppearance: 'none' as any,
-        MozAppearance: 'none' as any,
-        // Ensure proper text rendering
-        WebkitFontSmoothing: 'antialiased' as any,
-        MozOsxFontSmoothing: 'grayscale' as any,
-      },
-      default: {},
-    }),
   },
   inputWithIcon: {
-    paddingLeft: 48,
+    paddingLeft: 8,
   },
   inputWithRightIcon: {
-    paddingRight: 48,
+    paddingRight: 8,
   },
-  iconLeft: {
+  leftIcon: {
+    marginRight: 8,
+  },
+  rightIconButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  label: {
     position: 'absolute',
-    left: 12,
-    zIndex: 1,
+    left: 44,
+    top: 18,
+    fontSize: 16,
+    color: '#6b7280',
+    backgroundColor: 'transparent',
   },
-  iconRight: {
-    position: 'absolute',
-    right: 12,
-    zIndex: 1,
-  },
-  touchableContainer: {
-    flex: 1,
-  },
-  goodBorder: {
-    borderColor: theme.colors.success,
-  },
-  warningBorder: {
-    borderColor: theme.colors.warning,
-  },
-  errorBorder: {
-    borderColor: theme.colors.error,
-  },
-  rangeIndicator: {
-    marginTop: 4,
-    marginLeft: theme.spacing.sm,
-  },
-  rangeText: {
-    fontSize: theme.typography.small.fontSize,
-    fontWeight: '500',
+  labelError: {
+    color: '#ef4444',
   },
   errorText: {
-    color: theme.colors.error,
-    fontSize: theme.typography.small.fontSize,
+    color: '#ef4444',
+    fontSize: 12,
     marginTop: 4,
-    marginLeft: theme.spacing.sm,
+    marginLeft: 16,
   },
 });

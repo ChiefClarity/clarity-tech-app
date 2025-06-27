@@ -36,16 +36,27 @@ interface EquipmentAnalysis {
 }
 
 export const aiService = {
-  async analyzeTestStrip(imageBase64: string): Promise<ApiResponse<TestStripAnalysis>> {
+  async analyzeTestStrip(imageBase64: string, sessionId: string): Promise<ApiResponse<TestStripAnalysis>> {
     try {
       console.log('🤖 [AI Service] Analyzing test strip...');
       const response = await apiClient.post<TestStripAnalysis>('/ai/analyze-test-strip', {
         image: imageBase64,
+        sessionId: sessionId
       });
       console.log('🤖 [AI Service] Test strip analysis complete:', response);
       return response;
-    } catch (error) {
+    } catch (error: any) {
       console.error('🤖 [AI Service] Test strip analysis failed:', error);
+      
+      // Return a more user-friendly error
+      if (error?.response?.status === 500) {
+        return {
+          success: false,
+          error: 'Server error. Please try again later.',
+          message: error?.response?.data?.message || 'Internal server error'
+        };
+      }
+      
       throw error;
     }
   },
