@@ -56,6 +56,15 @@ export default function App() {
           .then(res => res.json())
           .then(data => console.log('✅ API Connected:', data))
           .catch(err => console.error('❌ API Connection Failed:', err));
+          
+        // Debug environment variables
+        console.log('🔍 Environment Check:', {
+          USE_REAL_AUTH: process.env.EXPO_PUBLIC_USE_REAL_AUTH,
+          USE_REAL_OFFERS: process.env.EXPO_PUBLIC_USE_REAL_OFFERS,
+          USE_REAL_ONBOARDING: process.env.EXPO_PUBLIC_USE_REAL_ONBOARDING,
+          API_BASE_URL: API_CONFIG.BASE_URL,
+          NODE_ENV: process.env.NODE_ENV,
+        });
         
         setIsAppReady(true);
       } catch (e) {

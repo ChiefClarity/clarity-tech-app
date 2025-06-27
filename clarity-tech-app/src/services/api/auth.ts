@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { API_ENDPOINTS } from '../../constants/api';
+import { API_ENDPOINTS, API_CONFIG } from '../../constants/api';
 import { User, ApiResponse } from '../../types';
 import { authTokenStorage } from '../storage/secureStorage';
 import { FEATURES } from '../../config/featureFlags';
@@ -25,54 +25,110 @@ export interface RefreshTokenResponse {
 
 export const authService = {
   async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse>> {
-    console.log('🔐 [Auth] Login attempt', { email: credentials.email, useRealAuth: FEATURES.USE_REAL_AUTH });
+    // FORCE REAL API - Remove all mock logic
+    console.log('🔐 Attempting login to:', `${API_CONFIG.BASE_URL}${API_ENDPOINTS.AUTH.LOGIN}`);
+    console.log('📧 Email:', credentials.email);
     
-    // Test account bypass for development
-    if (!FEATURES.USE_REAL_AUTH && credentials.email === 'test@claritypool.com' && credentials.password === 'test123') {
-      const mockTechUser: User = {
-        id: 'test-user-1',
-        email: 'test@claritypool.com',
-        firstName: 'Test',
-        lastName: 'Technician',
-        role: 'technician',
-        displayName: 'Test Technician'
-      };
+    try {
+      // First, let's make a direct axios call to see what the API actually returns
+      const baseUrl = API_CONFIG.BASE_URL || 'https://clarity-pool-api.onrender.com';
+      const directResponse = await fetch(`${baseUrl}${API_ENDPOINTS.AUTH.LOGIN}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      });
       
-      const mockResponse = {
-        success: true as const,
-        data: {
-          user: mockTechUser,
-          token: 'test-token',
-          refreshToken: 'test-refresh-token'
-        }
-      };
+      const rawData = await directResponse.json();
+      console.log('📡 Direct API response:', JSON.stringify(rawData, null, 2));
+      console.log('📡 Direct API response type:', typeof rawData);
+      console.log('📡 Direct API response keys:', Object.keys(rawData));
       
-      // Store tokens even for test account
-      await authTokenStorage.setToken(mockResponse.data.token);
-      await authTokenStorage.setRefreshToken(mockResponse.data.refreshToken);
+      // Check if the response is already in ApiResponse format or needs transformation
+      let response: ApiResponse<LoginResponse>;
       
-      console.log('✅ [Auth] Test account login successful');
-      return mockResponse;
-    }
-    
-    if (FEATURES.USE_REAL_AUTH) {
-      const response = await apiClient.post<LoginResponse>(API_ENDPOINTS.AUTH.LOGIN, credentials);
+      if (rawData.success !== undefined) {
+        // Response is already in ApiResponse format
+        response = rawData as ApiResponse<LoginResponse>;
+      } else if (rawData.user && rawData.token) {
+        // Response is direct LoginResponse, wrap it
+        response = {
+          success: true,
+          data: rawData as LoginResponse
+        };
+      } else if (rawData.error || !directResponse.ok) {
+        // Error response
+        response = {
+          success: false,
+          error: rawData.error || rawData.message || 'Login failed'
+        };
+      } else {
+        // Unexpected response format
+        console.error('❌ Unexpected response format:', rawData);
+        response = {
+          success: false,
+          error: 'Invalid response format from server'
+        };
+      }
       
-      // Store tokens after successful login
       if (response.success && response.data) {
+        console.log('✅ Login successful, processing response...');
+        console.log('📡 Response data structure:', {
+          hasData: !!response.data,
+          dataKeys: Object.keys(response.data),
+          hasUser: !!response.data.user,
+          userKeys: response.data.user ? Object.keys(response.data.user) : 'no user object',
+          hasToken: !!response.data.token,
+          hasRefreshToken: !!response.data.refreshToken
+        });
+        
+        if (response.data.user) {
+          console.log('👤 Raw user data from API:', JSON.stringify(response.data.user, null, 2));
+          console.log('👤 User data type:', typeof response.data.user);
+          console.log('👤 User fields check:', {
+            id: response.data.user.id,
+            email: response.data.user.email,
+            firstName: response.data.user.firstName,
+            lastName: response.data.user.lastName,
+            role: response.data.user.role,
+            avatar: response.data.user.avatar,
+            displayName: response.data.user.displayName
+          });
+        }
+        
+        // Store tokens after successful login
         await authTokenStorage.setToken(response.data.token);
         await authTokenStorage.setRefreshToken(response.data.refreshToken);
-        console.log('✅ [Auth] Real API login successful', { userId: response.data.user.id });
+        
+        // Store technician ID if available
+        if (response.data.user?.id) {
+          await AsyncStorage.setItem('technicianId', response.data.user.id.toString());
+        }
+        
+        console.log('✅ Login successful, data prepared for return:', {
+          success: response.success,
+          hasUser: !!response.data.user,
+          userId: response.data.user?.id,
+          userEmail: response.data.user?.email,
+          tokenStored: true
+        });
       } else {
-        console.error('❌ [Auth] Login failed', response.error);
+        console.error('❌ Login failed:', response.error);
+        console.error('❌ Full failed response:', JSON.stringify(response, null, 2));
       }
       
       return response;
-    } else {
-      // Mock for development - reject non-test accounts
+    } catch (error) {
+      console.error('❌ Login error:', error);
+      console.error('❌ Error type:', error?.constructor?.name);
+      console.error('❌ Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace'
+      });
       return {
         success: false,
-        error: 'Invalid credentials (use test@claritypool.com / test123 for demo)'
+        error: error instanceof Error ? error.message : 'Login failed'
       };
     }
   },
@@ -80,10 +136,8 @@ export const authService = {
   async logout(): Promise<ApiResponse<void>> {
     console.log('🔐 [Auth] Logout initiated');
     try {
-      // Call logout endpoint if using real auth
-      if (FEATURES.USE_REAL_AUTH) {
-        await apiClient.post<void>(API_ENDPOINTS.AUTH.LOGOUT);
-      }
+      // Always call logout endpoint - no more feature flag checks
+      await apiClient.post<void>(API_ENDPOINTS.AUTH.LOGOUT);
       
       // Clear all stored data
       await authTokenStorage.clearAllTokens();
@@ -124,16 +178,7 @@ export const authService = {
         };
       }
 
-      // For test account, always return success
-      if (!FEATURES.USE_REAL_AUTH && refreshToken === 'test-refresh-token') {
-        return {
-          success: true,
-          data: {
-            token: 'test-token-refreshed',
-            refreshToken: 'test-refresh-token'
-          }
-        };
-      }
+      // Remove mock logic - always use real API
 
       // Make refresh request without going through the regular API client
       // to avoid infinite loops when access token is expired

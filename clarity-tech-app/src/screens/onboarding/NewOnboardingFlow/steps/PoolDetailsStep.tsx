@@ -565,7 +565,8 @@ const SurfaceSection = memo(({
   surfaceCondition,
   handleFieldBlur,
   surfacePhotos,
-  setSurfacePhotos
+  setSurfacePhotos,
+  session
 }: any) => (
   <View>
     {/* AI Surface Analyzer */}
@@ -580,10 +581,29 @@ const SurfaceSection = memo(({
         maxPhotos={Math.min(6, MAX_PHOTOS_PER_SECTION)}
         onAnalyze={async (photos) => {
           setSurfacePhotos(photos);
-          // Mock AI surface analysis
-          setValue('surfaceMaterial', 'pebble');
-          setValue('surfaceCondition', 'good');
-          handleFieldBlur('surfaceMaterial', 'pebble');
+          
+          if (photos.length > 0 && FEATURES.USE_REAL_AI) {
+            try {
+              const response = await apiClient.post('/ai/analyze-pool-surface', {
+                image: photos[0], // Use first photo for analysis
+                sessionId: session?.id
+              });
+              
+              if (response.success && (response.data as any).analysis) {
+                const { material, condition } = (response.data as any).analysis;
+                if (material) {
+                  setValue('surfaceMaterial', material.toLowerCase());
+                  handleFieldBlur('surfaceMaterial', material.toLowerCase());
+                }
+                if (condition) {
+                  setValue('surfaceCondition', condition.toLowerCase());
+                  handleFieldBlur('surfaceCondition', condition.toLowerCase());
+                }
+              }
+            } catch (error) {
+              console.error('Surface analysis failed:', error);
+            }
+          }
         }}
         allowBatchAnalysis={true}
       />
@@ -698,8 +718,9 @@ const EnvironmentSection = memo(({
   setValue, 
   handleFieldBlur,
   environmentPhotos,
-  setEnvironmentPhotos
-}: EnvironmentSectionProps) => (
+  setEnvironmentPhotos,
+  session
+}: EnvironmentSectionProps & { session: any }) => (
   <View>
     {/* AI Environment Analyzer */}
     <View style={styles.aiAnalyzerSection}>
@@ -714,19 +735,34 @@ const EnvironmentSection = memo(({
         maxPhotos={Math.min(8, MAX_PHOTOS_PER_SECTION)}
         onAnalyze={async (photos: string[]) => {
           setEnvironmentPhotos(photos);
-          // Mock AI environment analysis with proper typing
-          const analysisResults = {
-            nearbyTrees: true,
-            treeTypes: 'Oak and Pine trees detected',
-            grassOrDirt: 'both' as const,
-            sprinklerSystem: true
-          };
           
-          // Update form values
-          Object.entries(analysisResults).forEach(([field, value]) => {
-            setValue(field as keyof PoolDetailsData, value);
-            handleFieldBlur(field, value);
-          });
+          if (photos.length > 0 && FEATURES.USE_REAL_AI) {
+            try {
+              const response = await apiClient.post('/ai/analyze-environment', {
+                images: photos,
+                sessionId: session?.id
+              });
+              
+              if (response.success && (response.data as any).analysis) {
+                const { nearbyVegetation, groundConditions } = (response.data as any).analysis;
+                
+                if (nearbyVegetation?.hasTrees) {
+                  setValue('nearbyTrees', true);
+                  setValue('treeTypes', nearbyVegetation.treeTypes || '');
+                }
+                
+                if (groundConditions?.type) {
+                  setValue('grassOrDirt', groundConditions.type);
+                }
+                
+                if (groundConditions?.hasSprinklers) {
+                  setValue('sprinklerSystem', true);
+                }
+              }
+            } catch (error) {
+              console.error('Environment analysis failed:', error);
+            }
+          }
         }}
         allowBatchAnalysis={true}
       />
@@ -751,8 +787,9 @@ const SkimmersSection = memo(({
   skimmerCount, 
   setSkimmerCount,
   handleFieldBlur,
-  skimmerWatches
-}: SkimmersSectionProps) => (
+  skimmerWatches,
+  session
+}: SkimmersSectionProps & { session: any }) => (
   <View>
     {/* AI Skimmer Detection */}
     <View style={styles.aiAnalyzerSection}>
@@ -765,11 +802,34 @@ const SkimmersSection = memo(({
         description="Capture each skimmer clearly"
         maxPhotos={MAX_PHOTOS_PER_SECTION}
         onAnalyze={async (photos) => {
-          // Mock AI skimmer detection
-          const detectedCount = Math.floor(Math.random() * 3) + 1;
-          setSkimmerCount(detectedCount);
-          setValue('skimmerCount', detectedCount);
-          handleFieldBlur('skimmerCount', detectedCount);
+          if (photos.length > 0 && FEATURES.USE_REAL_AI) {
+            try {
+              const response = await apiClient.post('/ai/analyze-skimmers', {
+                images: photos,
+                sessionId: session?.id
+              });
+              
+              if (response.success && (response.data as any).analysis) {
+                const { detectedSkimmerCount, skimmers } = (response.data as any).analysis;
+                
+                if (detectedSkimmerCount) {
+                  setSkimmerCount(detectedSkimmerCount);
+                  setValue('skimmerCount', detectedSkimmerCount);
+                  handleFieldBlur('skimmerCount', detectedSkimmerCount);
+                }
+                
+                // Auto-populate skimmer conditions if detected
+                skimmers?.forEach((skimmer: any, index: number) => {
+                  if (index < MAX_SKIMMERS) {
+                    setValue(`skimmer${index + 1}BasketCondition` as any, skimmer.basketCondition || 'good');
+                    setValue(`skimmer${index + 1}LidCondition` as any, skimmer.lidCondition || 'good');
+                  }
+                });
+              }
+            } catch (error) {
+              console.error('Skimmer analysis failed:', error);
+            }
+          }
         }}
         allowBatchAnalysis={true}
       />
@@ -830,7 +890,8 @@ const DeckSection = memo(({
   deckCleanliness,
   handleFieldBlur,
   deckPhotos,
-  setDeckPhotos
+  setDeckPhotos,
+  session
 }: any) => (
   <View>
     {/* AI Deck Analyzer */}
@@ -845,12 +906,31 @@ const DeckSection = memo(({
         maxPhotos={Math.min(6, MAX_PHOTOS_PER_SECTION)}
         onAnalyze={async (photos) => {
           setDeckPhotos(photos);
-          // Mock AI deck analysis
-          const materials = ['pavers', 'stamped concrete', 'tile', 'natural stone', 'concrete'];
-          const detectedMaterial = materials[Math.floor(Math.random() * materials.length)];
-          setValue('deckMaterial', detectedMaterial);
-          setValue('deckCleanliness', 'clean');
-          handleFieldBlur('deckMaterial', detectedMaterial);
+          
+          if (photos.length > 0 && FEATURES.USE_REAL_AI) {
+            try {
+              const response = await apiClient.post('/ai/analyze-deck', {
+                images: photos,
+                sessionId: session?.id
+              });
+              
+              if (response.success && (response.data as any).analysis) {
+                const { material, cleanliness } = (response.data as any).analysis;
+                
+                if (material) {
+                  setValue('deckMaterial', material.toLowerCase());
+                  handleFieldBlur('deckMaterial', material.toLowerCase());
+                }
+                
+                if (cleanliness) {
+                  setValue('deckCleanliness', cleanliness.toLowerCase());
+                  handleFieldBlur('deckCleanliness', cleanliness.toLowerCase());
+                }
+              }
+            } catch (error) {
+              console.error('Deck analysis failed:', error);
+            }
+          }
         }}
         allowBatchAnalysis={true}
       />
@@ -961,7 +1041,7 @@ const SkimmerMiniSection: React.FC<SkimmerMiniSectionProps> = memo(({
               },
             ]}
             onPress={() => {
-              const fieldName = `skimmer${index + 1}BasketCondition`;
+              const fieldName = `skimmer${index + 1}BasketCondition` as any;
               setValue(fieldName, option.value);
               handleFieldBlur(fieldName, option.value);
             }}
@@ -992,7 +1072,7 @@ const SkimmerMiniSection: React.FC<SkimmerMiniSectionProps> = memo(({
               },
             ]}
             onPress={() => {
-              const fieldName = `skimmer${index + 1}LidCondition`;
+              const fieldName = `skimmer${index + 1}LidCondition` as any;
               setValue(fieldName, option.value);
               handleFieldBlur(fieldName, option.value);
             }}
@@ -1146,7 +1226,7 @@ export const PoolDetailsStep: React.FC = () => {
       reset(session.poolDetails);
       setSelectedFeatures(session.poolDetails.features || []);
       // Only set skimmerCount if it's not already set
-      if (skimmerCount === 0 && session.poolDetails.skimmerCount > 0) {
+      if (skimmerCount === 0 && session.poolDetails.skimmerCount && session.poolDetails.skimmerCount > 0) {
         setSkimmerCount(session.poolDetails.skimmerCount);
       }
     }
@@ -1251,7 +1331,7 @@ export const PoolDetailsStep: React.FC = () => {
     });
     
     // Debounce the save with longer timeout for better performance
-    fieldSaveTimeouts.current[field] = setTimeout(async () => {
+    fieldSaveTimeouts.current[field] = setTimeout(async () => { 
       const allValues = getValues();
       const metrics = calculatePoolMetrics(allValues);
       
@@ -1289,18 +1369,18 @@ export const PoolDetailsStep: React.FC = () => {
 
   // Watch skimmer values individually (max skimmers defined by constant)
   console.log('6. About to call skimmer useWatch hooks');
-  const skimmer1Basket = useWatch({ control, name: 'skimmer1BasketCondition' }) || '';
+  const skimmer1Basket = (useWatch({ control, name: 'skimmer1BasketCondition' as any }) || '') as string;
   console.log('6a. skimmer1Basket watch successful');
-  const skimmer1Lid = useWatch({ control, name: 'skimmer1LidCondition' }) || '';
+  const skimmer1Lid = (useWatch({ control, name: 'skimmer1LidCondition' as any }) || '') as string;
   console.log('6b. skimmer1Lid watch successful');
-  const skimmer2Basket = useWatch({ control, name: 'skimmer2BasketCondition' }) || '';
-  const skimmer2Lid = useWatch({ control, name: 'skimmer2LidCondition' }) || '';
-  const skimmer3Basket = useWatch({ control, name: 'skimmer3BasketCondition' }) || '';
-  const skimmer3Lid = useWatch({ control, name: 'skimmer3LidCondition' }) || '';
-  const skimmer4Basket = useWatch({ control, name: 'skimmer4BasketCondition' }) || '';
-  const skimmer4Lid = useWatch({ control, name: 'skimmer4LidCondition' }) || '';
-  const skimmer5Basket = useWatch({ control, name: 'skimmer5BasketCondition' }) || '';
-  const skimmer5Lid = useWatch({ control, name: 'skimmer5LidCondition' }) || '';
+  const skimmer2Basket = (useWatch({ control, name: 'skimmer2BasketCondition' as any }) || '') as string;
+  const skimmer2Lid = (useWatch({ control, name: 'skimmer2LidCondition' as any }) || '') as string;
+  const skimmer3Basket = (useWatch({ control, name: 'skimmer3BasketCondition' as any }) || '') as string;
+  const skimmer3Lid = (useWatch({ control, name: 'skimmer3LidCondition' as any }) || '') as string;
+  const skimmer4Basket = (useWatch({ control, name: 'skimmer4BasketCondition' as any }) || '') as string;
+  const skimmer4Lid = (useWatch({ control, name: 'skimmer4LidCondition' as any }) || '') as string;
+  const skimmer5Basket = (useWatch({ control, name: 'skimmer5BasketCondition' as any }) || '') as string;
+  const skimmer5Lid = (useWatch({ control, name: 'skimmer5LidCondition' as any }) || '') as string;
   console.log('6c. All skimmer watches successful');
   
   // Create watches array from individual hooks
@@ -1515,7 +1595,7 @@ export const PoolDetailsStep: React.FC = () => {
           <View 
             key={section.id} 
             style={styles.section}
-            ref={ref => sectionRefs.current[section.id] = ref}
+            ref={(ref) => { if (ref) sectionRefs.current[section.id] = ref; }}
           >
             <TouchableOpacity
               style={styles.sectionHeader}
@@ -1564,6 +1644,7 @@ export const PoolDetailsStep: React.FC = () => {
                     handleFieldBlur={handleFieldBlur}
                     surfacePhotos={surfacePhotos}
                     setSurfacePhotos={setSurfacePhotos}
+                    session={session}
                   />
                 )}
                 {section.id === 'environment' && (
@@ -1574,6 +1655,7 @@ export const PoolDetailsStep: React.FC = () => {
                     handleFieldBlur={handleFieldBlur}
                     environmentPhotos={environmentPhotos}
                     setEnvironmentPhotos={setEnvironmentPhotos}
+                    session={session}
                   />
                 )}
                 {section.id === 'skimmers' && (
@@ -1585,6 +1667,7 @@ export const PoolDetailsStep: React.FC = () => {
                     setSkimmerCount={setSkimmerCount}
                     handleFieldBlur={handleFieldBlur}
                     skimmerWatches={skimmerWatches}
+                    session={session}
                   />
                 )}
                 {section.id === 'deck' && (
@@ -1596,6 +1679,7 @@ export const PoolDetailsStep: React.FC = () => {
                     handleFieldBlur={handleFieldBlur}
                     deckPhotos={deckPhotos}
                     setDeckPhotos={setDeckPhotos}
+                    session={session}
                   />
                 )}
               </View>

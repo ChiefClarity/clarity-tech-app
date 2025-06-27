@@ -111,33 +111,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = useCallback(async (email: string, password: string, rememberMe: boolean = false) => {
+    console.log('[AUTH CONTEXT] Starting login...');
+    console.log('[AUTH CONTEXT] Email:', email);
+    console.log('[AUTH CONTEXT] Remember me:', rememberMe);
+    
     try {
       setAuthState(prev => ({ ...prev, isLoading: true }));
       
       const response = await authService.login({ email, password });
+      console.log('[AUTH CONTEXT] Login service response:', JSON.stringify(response, null, 2));
+      console.log('[AUTH CONTEXT] Response structure:', {
+        success: response.success,
+        hasData: !!response.data,
+        dataKeys: response.data ? Object.keys(response.data) : 'no data',
+        error: response.error
+      });
 
       if (response.success && response.data) {
+        console.log('[AUTH CONTEXT] Extracting user and token...');
         const { user, token } = response.data;
+        
+        console.log('[AUTH CONTEXT] User object:', JSON.stringify(user, null, 2));
+        console.log('[AUTH CONTEXT] User type check:', {
+          isNull: user === null,
+          isUndefined: user === undefined,
+          type: typeof user,
+          hasId: user?.id !== undefined,
+          hasEmail: user?.email !== undefined,
+          hasFirstName: user?.firstName !== undefined,
+          hasLastName: user?.lastName !== undefined
+        });
+        console.log('[AUTH CONTEXT] Token exists:', !!token);
 
         // Save auth data (handled by authService for tokens)
+        console.log('[AUTH CONTEXT] Saving user data to AsyncStorage...');
         await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+        console.log('[AUTH CONTEXT] User data saved successfully');
 
         if (rememberMe) {
           await AsyncStorage.setItem(STORAGE_KEYS.REMEMBER_ME, 'true');
+          console.log('[AUTH CONTEXT] Remember me preference saved');
         }
 
+        console.log('[AUTH CONTEXT] Setting auth state with user:', user);
         setAuthState({
           user,
           isAuthenticated: true,
           isLoading: false,
         });
+        console.log('[AUTH CONTEXT] Auth state updated successfully');
 
         return { success: true };
       } else {
+        console.error('[AUTH CONTEXT] Login failed - invalid response structure');
+        console.error('[AUTH CONTEXT] Response error:', response.error);
         setAuthState(prev => ({ ...prev, isLoading: false }));
         return { success: false, error: response.error || 'Login failed' };
       }
     } catch (error) {
+      console.error('[AUTH CONTEXT] Login error caught:', error);
+      console.error('[AUTH CONTEXT] Error type:', error?.constructor?.name);
+      console.error('[AUTH CONTEXT] Error message:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('[AUTH CONTEXT] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       logger.auth.error('Login error', error);
       setAuthState(prev => ({ ...prev, isLoading: false }));
       return { success: false, error: 'An unexpected error occurred' };
