@@ -1,6 +1,6 @@
 import { apiClient } from './client';
 import { ApiResponse } from '../../types';
-import { ImageCompressor, getCompressionPreset } from '../../utils/imageCompression';
+import { getCompressionPreset, compressImageForAI } from '../../utils/imageCompression';
 import { logger } from '../../utils/logger';
 
 interface TestStripAnalysis {
@@ -23,6 +23,7 @@ interface TestStripAnalysis {
     aiModel: string;
     confidence: number;
   };
+  analyzedBy?: string; // Which AI provider was used
 }
 
 interface EquipmentAnalysis {
@@ -35,43 +36,66 @@ interface EquipmentAnalysis {
     issues: string[];
     recommendations: string[];
   };
+  analyzedBy?: string; // Which AI provider was used
 }
 
 export const aiService = {
-  async analyzeTestStrip(imageBase64: string, sessionId: string): Promise<ApiResponse<TestStripAnalysis>> {
+  async analyzeTestStrip(imageUri: string, sessionId: string): Promise<ApiResponse<TestStripAnalysis>> {
     try {
-      logger.info('🤖 [AI Service] Starting test strip analysis...');
+      console.log('🤖 [AI Service] Preparing test strip for analysis...');
       
-      // Compress image if it's not already a URI
-      let compressedImage = imageBase64;
-      if (!imageBase64.startsWith('file://') && !imageBase64.startsWith('data:')) {
-        logger.info('Compressing test strip image before sending to AI...');
-        const compressionOptions = getCompressionPreset('testStrip');
-        const compressionResult = await ImageCompressor.compressForAI(
-          `data:image/jpeg;base64,${imageBase64}`,
-          compressionOptions
-        );
-        compressedImage = compressionResult.base64 || imageBase64;
-        
-        logger.info(`Image compressed: ${compressionResult.compressionRatio?.toFixed(1)}% reduction`);
-      }
+      // Compress image before sending
+      const compressionOptions = getCompressionPreset('testStrip');
+      const compressed = await compressImageForAI(imageUri, compressionOptions);
+      
+      console.log('🤖 [AI Service] Image compressed:', {
+        originalSize: `${(compressed.originalSize! / 1024 / 1024).toFixed(2)}MB`,
+        compressedSize: `${(compressed.compressedSize! / 1024 / 1024).toFixed(2)}MB`,
+        reduction: `${compressed.compressionRatio?.toFixed(1)}%`,
+        dimensions: `${compressed.width}x${compressed.height}`
+      });
+      
+      // Use compressed base64 (already includes data URL prefix)
+      const imageBase64 = compressed.base64 || imageUri;
       
       const response = await apiClient.post<TestStripAnalysis>('/ai/analyze-test-strip', {
-        image: compressedImage,
+        image: imageBase64,
         sessionId: sessionId
       });
       
-      logger.info('🤖 [AI Service] Test strip analysis complete:', response);
+      console.log('🤖 [AI Service] Test strip analysis complete:', response);
+      
+      // Log which AI provider was used if available
+      if (response.data?.analyzedBy) {
+        console.log(`🤖 [AI Service] Analysis performed by: ${response.data.analyzedBy}`);
+      }
+      
       return response;
     } catch (error: any) {
-      logger.error('🤖 [AI Service] Test strip analysis failed:', error);
+      console.error('🤖 [AI Service] Test strip analysis failed:', error);
       
-      // Return a more user-friendly error
+      // Enhanced error messages for specific issues
+      if (error?.response?.status === 403) {
+        return {
+          success: false,
+          error: 'AI service authentication error. Please contact support.',
+          message: 'The AI service is temporarily unavailable due to configuration issues.'
+        };
+      }
+      
       if (error?.response?.status === 500) {
         return {
           success: false,
-          error: 'Server error. Please try again later.',
+          error: 'Server error. The system is attempting alternative analysis methods.',
           message: error?.response?.data?.message || 'Internal server error'
+        };
+      }
+      
+      if (error?.response?.status === 503) {
+        return {
+          success: false,
+          error: 'AI services are temporarily unavailable. Please try again in a moment.',
+          message: 'All AI providers are currently at capacity.'
         };
       }
       
@@ -79,33 +103,64 @@ export const aiService = {
     }
   },
 
-  async analyzeEquipment(imageBase64: string, equipmentType?: string): Promise<ApiResponse<EquipmentAnalysis>> {
+  async analyzeEquipment(imageUri: string, equipmentType?: string): Promise<ApiResponse<EquipmentAnalysis>> {
     try {
-      logger.info('🤖 [AI Service] Starting equipment analysis...');
+      console.log('🤖 [AI Service] Starting equipment analysis...');
       
-      // Compress image
-      let compressedImage = imageBase64;
-      if (!imageBase64.startsWith('file://') && !imageBase64.startsWith('data:')) {
-        logger.info('Compressing equipment image before sending to AI...');
-        const compressionOptions = getCompressionPreset('equipment');
-        const compressionResult = await ImageCompressor.compressForAI(
-          `data:image/jpeg;base64,${imageBase64}`,
-          compressionOptions
-        );
-        compressedImage = compressionResult.base64 || imageBase64;
-        
-        logger.info(`Image compressed: ${compressionResult.compressionRatio?.toFixed(1)}% reduction`);
-      }
+      // Compress image before sending
+      const compressionOptions = getCompressionPreset('equipment');
+      const compressed = await compressImageForAI(imageUri, compressionOptions);
+      
+      console.log('🤖 [AI Service] Image compressed:', {
+        originalSize: `${(compressed.originalSize! / 1024 / 1024).toFixed(2)}MB`,
+        compressedSize: `${(compressed.compressedSize! / 1024 / 1024).toFixed(2)}MB`,
+        reduction: `${compressed.compressionRatio?.toFixed(1)}%`
+      });
+      
+      // Use compressed base64 (already includes data URL prefix)
+      const imageBase64 = compressed.base64 || imageUri;
       
       const response = await apiClient.post<EquipmentAnalysis>('/ai/analyze-equipment', {
-        image: compressedImage,
+        image: imageBase64,
         equipmentType,
       });
       
-      logger.info('🤖 [AI Service] Equipment analysis complete:', response);
+      console.log('🤖 [AI Service] Equipment analysis complete:', response);
+      
+      // Log which AI provider was used if available
+      if (response.data?.analyzedBy) {
+        console.log(`🤖 [AI Service] Analysis performed by: ${response.data.analyzedBy}`);
+      }
+      
       return response;
-    } catch (error) {
-      logger.error('🤖 [AI Service] Equipment analysis failed:', error);
+    } catch (error: any) {
+      console.error('🤖 [AI Service] Equipment analysis failed:', error);
+      
+      // Enhanced error messages
+      if (error?.response?.status === 403) {
+        return {
+          success: false,
+          error: 'AI service authentication error. Please contact support.',
+          message: 'Unable to authenticate with AI service.'
+        };
+      }
+      
+      if (error?.response?.status === 500) {
+        return {
+          success: false,
+          error: 'Server error. The system is attempting alternative analysis methods.',
+          message: error?.response?.data?.message || 'Internal server error'
+        };
+      }
+      
+      if (error?.response?.status === 503) {
+        return {
+          success: false,
+          error: 'AI services are temporarily unavailable. Please try again in a moment.',
+          message: 'All AI providers are currently at capacity.'
+        };
+      }
+      
       throw error;
     }
   },
@@ -124,37 +179,25 @@ export const aiService = {
     }
   },
 
-  async analyzePoolSurface(imageBase64: string, sessionId: string): Promise<ApiResponse<any>> {
+  async analyzePoolSurface(imageUri: string, sessionId: string): Promise<ApiResponse<any>> {
     // Compress image
-    let compressedImage = imageBase64;
-    if (!imageBase64.startsWith('file://') && !imageBase64.startsWith('data:')) {
-      const compressionOptions = getCompressionPreset('pool');
-      const compressionResult = await ImageCompressor.compressForAI(
-        `data:image/jpeg;base64,${imageBase64}`,
-        compressionOptions
-      );
-      compressedImage = compressionResult.base64 || imageBase64;
-    }
+    const compressionOptions = getCompressionPreset('pool');
+    const compressed = await compressImageForAI(imageUri, compressionOptions);
+    const imageBase64 = compressed.base64 || imageUri;
     
     return apiClient.post('/ai/analyze-pool-surface', {
-      image: compressedImage,
+      image: imageBase64,
       sessionId,
     });
   },
 
   async analyzeEnvironment(images: string[], sessionId: string): Promise<ApiResponse<any>> {
     // Compress multiple images
+    const compressionOptions = getCompressionPreset('pool');
     const compressedImages = await Promise.all(
       images.map(async (image) => {
-        if (!image.startsWith('file://') && !image.startsWith('data:')) {
-          const compressionOptions = getCompressionPreset('pool');
-          const compressionResult = await ImageCompressor.compressForAI(
-            `data:image/jpeg;base64,${image}`,
-            compressionOptions
-          );
-          return compressionResult.base64 || image;
-        }
-        return image;
+        const compressed = await compressImageForAI(image, compressionOptions);
+        return compressed.base64 || image;
       })
     );
     
@@ -166,17 +209,11 @@ export const aiService = {
 
   async analyzeSkimmers(images: string[], sessionId: string): Promise<ApiResponse<any>> {
     // Compress multiple images
+    const compressionOptions = getCompressionPreset('equipment');
     const compressedImages = await Promise.all(
       images.map(async (image) => {
-        if (!image.startsWith('file://') && !image.startsWith('data:')) {
-          const compressionOptions = getCompressionPreset('equipment');
-          const compressionResult = await ImageCompressor.compressForAI(
-            `data:image/jpeg;base64,${image}`,
-            compressionOptions
-          );
-          return compressionResult.base64 || image;
-        }
-        return image;
+        const compressed = await compressImageForAI(image, compressionOptions);
+        return compressed.base64 || image;
       })
     );
     
@@ -188,17 +225,11 @@ export const aiService = {
 
   async analyzeDeck(images: string[], sessionId: string): Promise<ApiResponse<any>> {
     // Compress multiple images
+    const compressionOptions = getCompressionPreset('pool');
     const compressedImages = await Promise.all(
       images.map(async (image) => {
-        if (!image.startsWith('file://') && !image.startsWith('data:')) {
-          const compressionOptions = getCompressionPreset('pool');
-          const compressionResult = await ImageCompressor.compressForAI(
-            `data:image/jpeg;base64,${image}`,
-            compressionOptions
-          );
-          return compressionResult.base64 || image;
-        }
-        return image;
+        const compressed = await compressImageForAI(image, compressionOptions);
+        return compressed.base64 || image;
       })
     );
     

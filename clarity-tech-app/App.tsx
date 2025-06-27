@@ -19,6 +19,7 @@ import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { webNetworkMonitor } from './src/services/network/webNetworkMonitor';
 import { registerServiceWorker, defaultServiceWorkerConfig } from './src/utils/serviceWorker';
 import { API_CONFIG } from './src/constants/api';
+import { aiHealthService } from './src/services/api/aiHealth';
 
 export default function App() {
   const [isAppReady, setIsAppReady] = useState(false);
@@ -56,6 +57,11 @@ export default function App() {
           .then(res => res.json())
           .then(data => console.log('✅ API Connected:', data))
           .catch(err => console.error('❌ API Connection Failed:', err));
+          
+        // Check AI service health
+        if (__DEV__) {
+          await aiHealthService.performHealthCheckWithAlert();
+        }
           
         // Debug environment variables
         console.log('🔍 Environment Check:', {

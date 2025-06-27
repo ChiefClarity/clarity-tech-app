@@ -67,6 +67,11 @@ export class ImageCompressor {
           base64: true,
         }
       );
+      
+      // Add data URL prefix if base64 is returned without it
+      if (manipResult.base64 && !manipResult.base64.startsWith('data:')) {
+        manipResult.base64 = `data:image/jpeg;base64,${manipResult.base64}`;
+      }
 
       // Calculate compression stats
       const originalSize = this.estimateBase64Size(imageUri);
