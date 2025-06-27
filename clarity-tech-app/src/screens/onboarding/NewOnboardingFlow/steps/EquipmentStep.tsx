@@ -15,9 +15,10 @@ import { AIPhotoAnalyzer } from '../../../../components/ui/AIPhotoAnalyzer';
 import { AIInsightsBox } from '../../../../components/common/AIInsightsBox';
 import { theme } from '../../../../styles/theme';
 import { webAlert } from '../utils/webAlert';
-import { GeminiVisionService } from '../../../../services/ai/geminiVision';
+import { aiService } from '../../../../services/api/ai';
 import { FEATURES } from '../../../../config/features';
 import { AIInsightsService } from '../../../../services/ai/aiInsights';
+import { Alert } from 'react-native';
 
 // CRITICAL: Equipment sections in EXACT order
 const EQUIPMENT_SECTIONS = [
@@ -163,47 +164,92 @@ export const EquipmentStep: React.FC = () => {
       await updateEquipment(updatedData);
       
       // Use real AI if enabled
-      if (FEATURES.USE_REAL_AI && photos.length > 0) {
-        // Analyze first photo with Gemini Vision
-        const analysis = await GeminiVisionService.analyzeEquipmentPhoto(
-          photos[0],
-          session?.id || 'temp-session'
-        );
+      if (FEATURES.AI_EQUIPMENT_DETECTION && photos.length > 0) {
+        console.log('🤖 Starting AI equipment analysis...');
         
-        // Auto-fill form with AI results
-        if (analysis.equipmentType.toLowerCase().includes('pump')) {
-          setEquipmentData(prev => ({
-            ...prev,
-            pumpManufacturer: analysis.brand || prev.pumpManufacturer,
-            pumpModel: analysis.model || prev.pumpModel,
-            pumpCondition: analysis.condition || prev.pumpCondition,
-          }));
-        } else if (analysis.equipmentType.toLowerCase().includes('filter')) {
-          setEquipmentData(prev => ({
-            ...prev,
-            filterManufacturer: analysis.brand || prev.filterManufacturer,
-            filterModel: analysis.model || prev.filterModel,
-            filterCondition: analysis.condition || prev.filterCondition,
-          }));
+        // Convert first photo to base64 if needed
+        let imageData = photos[0];
+        if (!imageData.startsWith('data:')) {
+          // If it's a blob URL, fetch and convert
+          const response = await fetch(imageData);
+          const blob = await response.blob();
+          const reader = new FileReader();
+          imageData = await new Promise((resolve) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
         }
         
-        setAnalysisComplete(true);
-        setAnalysisResult({
-          success: true,
-          confidence: Math.round(analysis.confidence.overall),
-          message: `${analysis.equipmentType} identified with ${Math.round(analysis.confidence.overall)}% confidence`,
-        });
+        // Call real AI service
+        const result = await aiService.analyzeEquipment(imageData as string);
         
-        // Get AI insights after successful equipment analysis
-        setIsAnalyzingInsights(true);
-        const insights = await AIInsightsService.getEquipmentInsights({
-          identifiedEquipment: analysis,
-          manualEntries: equipmentData
-        });
-        setAiInsights(insights);
-        setIsAnalyzingInsights(false);
+        if (result.success && result.data) {
+          console.log('✅ AI Equipment analysis successful:', result.data);
+          const { analysis } = result.data;
+          
+          // Auto-fill form with AI results based on equipment type
+          if (analysis.type.toLowerCase().includes('pump')) {
+            setEquipmentData(prev => ({
+              ...prev,
+              pumpManufacturer: analysis.brand || prev.pumpManufacturer,
+              pumpModel: analysis.model || prev.pumpModel,
+              pumpCondition: analysis.condition || prev.pumpCondition,
+            }));
+          } else if (analysis.type.toLowerCase().includes('filter')) {
+            setEquipmentData(prev => ({
+              ...prev,
+              filterManufacturer: analysis.brand || prev.filterManufacturer,
+              filterModel: analysis.model || prev.filterModel,
+              filterCondition: analysis.condition || prev.filterCondition,
+            }));
+          } else if (analysis.type.toLowerCase().includes('heater')) {
+            setEquipmentData(prev => ({
+              ...prev,
+              heaterManufacturer: analysis.brand || prev.heaterManufacturer,
+              heaterModel: analysis.model || prev.heaterModel,
+              heaterCondition: analysis.condition || prev.heaterCondition,
+            }));
+          } else if (analysis.type.toLowerCase().includes('timer')) {
+            setEquipmentData(prev => ({
+              ...prev,
+              timerType: analysis.brand?.toLowerCase().includes('digital') ? 'digital' : 
+                        analysis.brand?.toLowerCase().includes('smart') ? 'smart' : 'mechanical',
+              timerManufacturer: analysis.brand || prev.timerManufacturer,
+              timerModel: analysis.model || prev.timerModel,
+            }));
+          }
+          
+          setAnalysisComplete(true);
+          setAnalysisResult({
+            success: true,
+            confidence: Math.round((result.data.analysis.confidence || 0.9) * 100),
+            message: `${analysis.type} identified successfully`,
+          });
+          
+          // Show recommendations if any
+          if (analysis.recommendations && analysis.recommendations.length > 0) {
+            Alert.alert(
+              'AI Recommendations',
+              analysis.recommendations.join('\n'),
+              [{ text: 'OK' }]
+            );
+          }
+          
+          // Get AI insights after successful equipment analysis
+          setIsAnalyzingInsights(true);
+          const insights = await AIInsightsService.getEquipmentInsights({
+            identifiedEquipment: analysis,
+            manualEntries: equipmentData
+          });
+          setAiInsights(insights);
+          setIsAnalyzingInsights(false);
+        } else {
+          console.error('❌ AI Equipment analysis failed:', result.error);
+          Alert.alert('Analysis Failed', 'Unable to analyze equipment. Please try again.');
+        }
       } else {
-        // Mock mode
+        // Mock mode fallback
+        console.log('🎭 Using mock mode for equipment analysis');
         setAnalysisComplete(true);
         setAnalysisResult({
           success: true,
@@ -212,11 +258,8 @@ export const EquipmentStep: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Equipment analysis failed:', error);
-      setAnalysisResult({
-        success: false,
-        message: 'AI analysis unavailable. Please complete fields manually.',
-      });
+      console.error('❌ Equipment analysis error:', error);
+      Alert.alert('Error', 'Failed to analyze equipment. Please check your connection.');
     } finally {
       setAnalyzing(false);
       setTimeout(() => setAnalysisResult(null), 5000);

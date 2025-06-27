@@ -1,29 +1,37 @@
+// HARDCODE these values - Expo web doesn't read .env properly
 export const FEATURES = {
-  // AI Features - Set to true when API keys are configured
-  USE_REAL_AI: true, // Set to true when ready for production
+  // FORCE ALL TO TRUE - NO MORE MOCKS
+  USE_REAL_AUTH: true,
+  USE_REAL_OFFERS: true, 
+  USE_REAL_ONBOARDING: true,
+  USE_REAL_AI: true,
   
-  // Individual AI feature flags
+  // Individual AI feature flags - ALL TRUE
   AI_WATER_CHEMISTRY: true,
   AI_POOL_ANALYSIS: true,
   AI_EQUIPMENT_DETECTION: true,
   AI_ENVIRONMENT_ANALYSIS: true,
   AI_VOICE_TRANSCRIPTION: true,
   AI_REPORT_GENERATION: true,
-  AI_SATELLITE_ANALYSIS: true, // NEW - Google Maps
+  AI_SATELLITE_ANALYSIS: true,
   
-  // Photo capture settings
+  // Production settings
   PHOTO_QUALITY: 0.8,
   MAX_PHOTO_SIZE: 1920,
+  VOICE_MIN_DURATION: 30,
+  VOICE_MAX_DURATION: 180,
+  VOICE_REQUIRED: true,
   
-  // Voice recording settings - MANDATORY
-  VOICE_MIN_DURATION: 30, // 30 seconds MANDATORY
-  VOICE_MAX_DURATION: 180, // 3 minutes maximum
-  VOICE_REQUIRED: true, // Cannot complete without voice note
-  
-  // API timeouts
-  AI_ANALYSIS_TIMEOUT: 5000, // 5 seconds
+  // Proper timeouts for AI
+  AI_ANALYSIS_TIMEOUT: 30000, // 30 seconds
   PHOTO_UPLOAD_TIMEOUT: 10000, // 10 seconds
 };
+
+// Export individual flags for backwards compatibility
+export const USE_REAL_AUTH = true;
+export const USE_REAL_OFFERS = true;
+export const USE_REAL_ONBOARDING = true;
+export const USE_REAL_AI = true;
 
 export const AI_ENDPOINTS = {
   ANALYZE_TEST_STRIP: '/ai/analyze-test-strip',

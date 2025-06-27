@@ -14,6 +14,9 @@ import { useOnboarding } from '../../../../contexts/OnboardingContext';
 import { theme } from '../../../../styles/theme';
 import { webAlert } from '../utils/webAlert';
 import { AIInsightsService } from '../../../../services/ai/aiInsights';
+import { aiService } from '../../../../services/api/ai';
+import { FEATURES } from '../../../../config/features';
+import { Alert } from 'react-native';
 
 // EXACT validation schema from current implementation
 const waterChemistrySchema = z.object({
@@ -61,6 +64,7 @@ export const WaterChemistryStep: React.FC = () => {
   } | null>(null);
   const [aiInsights, setAiInsights] = useState<string[]>([]);
   const [isAnalyzingInsights, setIsAnalyzingInsights] = useState(false);
+  const [analyzingImage, setAnalyzingImage] = useState(false);
   
   const { control, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = useForm<WaterChemistryData>({
     resolver: zodResolver(waterChemistrySchema),
@@ -203,27 +207,82 @@ export const WaterChemistryStep: React.FC = () => {
             description="Take a photo of your test strip for instant AI analysis"
             maxPhotos={1}
             onAnalyze={async (photos) => {
-              // Auto-populate form fields
-              setValue('ph', 7.4);
-              setValue('chlorine', 2.0);
-              setValue('alkalinity', 100);
-              setValue('cyanuricAcid', 45);
+              if (photos.length === 0) return;
               
-              // Set inline success message instead of alert
-              setAnalysisResult({
-                success: true,
-                confidence: 92,
-                message: 'Test strip analyzed successfully'
-              });
-              
-              // Save the values immediately
-              const values = getValues();
-              await updateWaterChemistry(values);
-              
-              // Auto-hide message after 5 seconds
-              setTimeout(() => {
-                setAnalysisResult(null);
-              }, 5000);
+              try {
+                setAnalyzingImage(true);
+                console.log('📸 Starting AI analysis of test strip...');
+                
+                // Convert to base64 if needed
+                let imageData = photos[0];
+                if (!imageData.startsWith('data:')) {
+                  // If it's a blob URL, fetch and convert
+                  const response = await fetch(imageData);
+                  const blob = await response.blob();
+                  const reader = new FileReader();
+                  imageData = await new Promise((resolve) => {
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.readAsDataURL(blob);
+                  });
+                }
+                
+                // Call REAL AI service
+                const result = await aiService.analyzeTestStrip(imageData);
+                
+                if (result.success && result.data) {
+                  console.log('✅ AI Analysis successful:', result.data);
+                  
+                  const { readings } = result.data;
+                  
+                  // Update ALL form values with AI results
+                  if (readings.freeChlorine !== null) setValue('chlorine', readings.freeChlorine);
+                  if (readings.ph !== null) setValue('ph', readings.ph);
+                  if (readings.alkalinity !== null) setValue('alkalinity', readings.alkalinity);
+                  if (readings.cyanuricAcid !== null) setValue('cyanuricAcid', readings.cyanuricAcid);
+                  if (readings.calcium !== null) setValue('calcium', readings.calcium);
+                  if (readings.salt !== null) setValue('salt', readings.salt);
+                  if (readings.tds !== null) setValue('tds', readings.tds);
+                  if (readings.phosphates !== null) setValue('phosphates', readings.phosphates);
+                  if (readings.copper !== null) setValue('copper', readings.copper);
+                  if (readings.iron !== null) setValue('iron', readings.iron);
+                  
+                  // Show AI insights
+                  if (result.data.analysis) {
+                    const insights = await aiService.generateWaterChemistryInsights(readings);
+                    if (insights.success && insights.data) {
+                      setAiInsights([
+                        insights.data.insights?.summary || 'Analysis complete',
+                        ...(insights.data.insights?.recommendations || []),
+                        ...(insights.data.insights?.immediateConcerns || [])
+                      ]);
+                    }
+                  }
+                  
+                  // Set success message
+                  setAnalysisResult({
+                    success: true,
+                    confidence: Math.round((result.data.analysis?.confidence || 0.95) * 100),
+                    message: 'Test strip analyzed successfully'
+                  });
+                  
+                  // Save the values immediately
+                  const values = getValues();
+                  await updateWaterChemistry(values);
+                  
+                  // Auto-hide message after 5 seconds
+                  setTimeout(() => {
+                    setAnalysisResult(null);
+                  }, 5000);
+                } else {
+                  console.error('❌ AI Analysis failed:', result.error);
+                  Alert.alert('Analysis Failed', 'Unable to analyze test strip. Please try again.');
+                }
+              } catch (error) {
+                console.error('❌ AI Analysis error:', error);
+                Alert.alert('Error', 'Failed to analyze image. Please check your connection.');
+              } finally {
+                setAnalyzingImage(false);
+              }
             }}
           />
         </View>
