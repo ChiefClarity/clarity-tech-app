@@ -65,6 +65,7 @@ export const WaterChemistryStep: React.FC = () => {
   const [aiInsights, setAiInsights] = useState<string[]>([]);
   const [isAnalyzingInsights, setIsAnalyzingInsights] = useState(false);
   const [analyzingImage, setAnalyzingImage] = useState(false);
+  const [compressionProgress, setCompressionProgress] = useState<string | null>(null);
   
   const { control, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = useForm<WaterChemistryData>({
     resolver: zodResolver(waterChemistrySchema),
@@ -211,6 +212,7 @@ export const WaterChemistryStep: React.FC = () => {
               
               try {
                 setAnalyzingImage(true);
+                setCompressionProgress('Processing image...');
                 console.log('📸 Starting AI analysis of test strip...');
                 
                 // Get session ID from onboarding context
@@ -229,7 +231,9 @@ export const WaterChemistryStep: React.FC = () => {
                   });
                 }
                 
-                // Call AI service with sessionId
+                setCompressionProgress('Compressing image for optimal AI analysis...');
+                
+                // Call AI service with sessionId (compression happens inside the service)
                 const result = await aiService.analyzeTestStrip(imageData, sessionId);
                 
                 if (result.success && result.data) {
@@ -277,10 +281,17 @@ export const WaterChemistryStep: React.FC = () => {
                 Alert.alert('Error', 'Failed to analyze image. Please check your connection.');
               } finally {
                 setAnalyzingImage(false);
+                setCompressionProgress(null);
               }
             }}
           />
         </View>
+
+        {compressionProgress && (
+          <View style={styles.compressionProgress}>
+            <Text style={styles.compressionProgressText}>{compressionProgress}</Text>
+          </View>
+        )}
 
         {analysisResult && (
           <View style={[
@@ -599,5 +610,19 @@ const styles = StyleSheet.create({
   saltCellCheckbox: {
     paddingTop: 28, // Align with input field
     paddingHorizontal: theme.spacing.xs,
+  },
+  compressionProgress: {
+    backgroundColor: theme.colors.blueGreen + '20',
+    padding: theme.spacing.sm,
+    marginHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.sm,
+    borderRadius: theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.blueGreen,
+  },
+  compressionProgressText: {
+    fontSize: theme.typography.small.fontSize,
+    color: theme.colors.darkBlue,
+    textAlign: 'center',
   },
 });

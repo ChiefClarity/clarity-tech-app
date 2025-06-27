@@ -93,6 +93,7 @@ export const EquipmentStep: React.FC = () => {
   } | null>(null);
   const [aiInsights, setAiInsights] = useState<string[]>([]);
   const [isAnalyzingInsights, setIsAnalyzingInsights] = useState(false);
+  const [compressionProgress, setCompressionProgress] = useState<string | null>(null);
   const [equipmentData, setEquipmentData] = useState(session?.equipment || {
     photos: [],
     // Initialize all fields
@@ -157,6 +158,7 @@ export const EquipmentStep: React.FC = () => {
   // Handle photo analysis
   const handleEquipmentAnalysis = async (photos: string[]) => {
     setAnalyzing(true);
+    setCompressionProgress('Processing equipment photos...');
     try {
       // Store photos first
       const updatedData = { ...equipmentData, photos };
@@ -180,7 +182,9 @@ export const EquipmentStep: React.FC = () => {
           });
         }
         
-        // Call real AI service
+        setCompressionProgress('Optimizing image for AI analysis...');
+        
+        // Call real AI service (compression happens inside)
         const result = await aiService.analyzeEquipment(imageData as string);
         
         if (result.success && result.data) {
@@ -262,6 +266,7 @@ export const EquipmentStep: React.FC = () => {
       Alert.alert('Error', 'Failed to analyze equipment. Please check your connection.');
     } finally {
       setAnalyzing(false);
+      setCompressionProgress(null);
       setTimeout(() => setAnalysisResult(null), 5000);
     }
   };
@@ -351,6 +356,12 @@ export const EquipmentStep: React.FC = () => {
           initialPhotos={equipmentData.photos || []}
           allowBatchAnalysis={true}
         />
+        
+        {compressionProgress && (
+          <View style={styles.compressionProgress}>
+            <Text style={styles.compressionProgressText}>{compressionProgress}</Text>
+          </View>
+        )}
         
         {analysisResult && (
           <View style={[
@@ -1294,5 +1305,18 @@ const styles = StyleSheet.create({
   periodTextSelected: {
     color: theme.colors.white,
     fontWeight: '600',
+  },
+  compressionProgress: {
+    backgroundColor: theme.colors.blueGreen + '20',
+    padding: theme.spacing.sm,
+    marginTop: theme.spacing.sm,
+    borderRadius: theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.blueGreen,
+  },
+  compressionProgressText: {
+    fontSize: theme.typography.small.fontSize,
+    color: theme.colors.darkBlue,
+    textAlign: 'center',
   },
 });
