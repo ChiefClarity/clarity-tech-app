@@ -66,6 +66,7 @@ export const WaterChemistryStep: React.FC = () => {
   const [isAnalyzingInsights, setIsAnalyzingInsights] = useState(false);
   const [analyzingImage, setAnalyzingImage] = useState(false);
   const [compressionProgress, setCompressionProgress] = useState<string | null>(null);
+  const [measuredFields, setMeasuredFields] = useState<string[]>([]);
   
   const { control, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = useForm<WaterChemistryData>({
     resolver: zodResolver(waterChemistrySchema),
@@ -241,36 +242,54 @@ export const WaterChemistryStep: React.FC = () => {
                   
                   const { readings } = result.data;
                   
-                  // Update form values with AI results - handle null values
-                  const fieldMappings = {
-                    chlorine: readings.freeChlorine,
-                    ph: readings.ph,
-                    alkalinity: readings.alkalinity,
-                    cyanuricAcid: readings.cyanuricAcid,
-                    calcium: readings.calcium,
-                    salt: readings.salt,
-                    tds: readings.tds,
-                    copper: readings.copper,
-                    iron: readings.iron,
-                    phosphates: readings.phosphates
+                  // Map API field names to form field names and display labels
+                  const fieldMappings: { [key: string]: { apiField: keyof typeof readings, label: string } } = {
+                    chlorine: { apiField: 'freeChlorine', label: 'Free Chlorine' },
+                    ph: { apiField: 'ph', label: 'pH' },
+                    alkalinity: { apiField: 'alkalinity', label: 'Total Alkalinity' },
+                    cyanuricAcid: { apiField: 'cyanuricAcid', label: 'Cyanuric Acid' },
+                    calcium: { apiField: 'calcium', label: 'Calcium Hardness' },
+                    salt: { apiField: 'salt', label: 'Salt Level' },
+                    copper: { apiField: 'copper', label: 'Copper' },
+                    iron: { apiField: 'iron', label: 'Iron' },
+                    phosphates: { apiField: 'phosphates', label: 'Phosphates' },
                   };
                   
-                  Object.entries(fieldMappings).forEach(([field, value]) => {
+                  // Clear measured fields and determine which chemicals were detected
+                  setMeasuredFields([]);
+                  const detectedChemicals: string[] = [];
+                  
+                  // Update form - only non-null values
+                  Object.entries(fieldMappings).forEach(([formField, { apiField, label }]) => {
+                    const value = readings[apiField];
                     if (value !== null && value !== undefined) {
-                      setValue(field as keyof WaterChemistryData, value);
+                      setValue(formField as keyof WaterChemistryData, value);
+                      // Mark this field as measured
+                      setMeasuredFields(prev => [...prev, formField]);
+                      detectedChemicals.push(label);
                     }
                   });
+                  
+                  // Show what was detected
+                  if (detectedChemicals.length > 0) {
+                    Alert.alert(
+                      'Test Strip Analyzed',
+                      `Detected chemicals on your test strip:\n${detectedChemicals.map(c => `• ${c}`).join('\n')}`,
+                      [{ text: 'OK' }]
+                    );
+                  }
                   
                   // Save the image URL if provided
                   if (result.data.imageUrl) {
                     setValue('testStripImageUrl' as any, result.data.imageUrl);
                   }
                   
-                  Alert.alert(
-                    'AI Analysis Complete',
-                    'Test strip values have been automatically filled. Please review and adjust if needed.',
-                    [{ text: 'OK' }]
-                  );
+                  // Visual indicator for which fields were measured
+                  setAnalysisResult({
+                    success: true,
+                    confidence: result.data.analysis?.confidence,
+                    message: `Successfully analyzed ${detectedChemicals.length} parameters`
+                  });
                 } else {
                   const errorMsg = result.error || 'Unable to analyze test strip';
                   console.error('❌ AI Analysis failed:', errorMsg);
@@ -321,12 +340,15 @@ export const WaterChemistryStep: React.FC = () => {
               render={({ field: { onChange, onBlur, value } }) => (
                 <View>
                   <ModernInput
-                    label={field.label}
+                    label={`${field.label}${measuredFields.includes(field.key) ? ' ✓' : ''}`}
                     value={String(value || '')}
                     onChangeText={onChange}
                     onBlur={() => handleBlur(field.key, String(value))}
                     error={errors[field.key as keyof WaterChemistryData]?.message}
                     keyboardType="decimal-pad"
+                    style={[
+                      measuredFields.includes(field.key) && styles.measuredField
+                    ]}
                   />
                   <View style={styles.rangeInfo}>
                     <Text style={styles.idealRange}>Ideal: {field.ideal}</Text>
@@ -355,13 +377,15 @@ export const WaterChemistryStep: React.FC = () => {
                         render={({ field: { onChange, onBlur, value } }) => (
                           <View>
                             <ModernInput
-                              label={field.label}
+                              label={`${field.label}${measuredFields.includes(field.key) ? ' ✓' : ''}`}
                               value={String(value || '')}
                               onChangeText={onChange}
                               onBlur={() => handleBlur(field.key, String(value))}
                               error={errors[field.key as keyof WaterChemistryData]?.message}
                               keyboardType="decimal-pad"
-                              suffix={field.unit}
+                              style={[
+                                measuredFields.includes(field.key) && styles.measuredField
+                              ]}
                             />
                             <View style={styles.rangeInfo}>
                               <Text style={styles.idealRange}>Ideal: {field.ideal}</Text>
@@ -412,13 +436,15 @@ export const WaterChemistryStep: React.FC = () => {
                     render={({ field: { onChange, onBlur, value } }) => (
                       <View>
                         <ModernInput
-                          label={field.label}
+                          label={`${field.label}${measuredFields.includes(field.key) ? ' ✓' : ''}`}
                           value={String(value || '')}
                           onChangeText={onChange}
                           onBlur={() => handleBlur(field.key, String(value))}
                           error={errors[field.key as keyof WaterChemistryData]?.message}
                           keyboardType="decimal-pad"
-                          suffix={field.unit}
+                          style={[
+                            measuredFields.includes(field.key) && styles.measuredField
+                          ]}
                         />
                         <View style={styles.rangeInfo}>
                           <Text style={styles.idealRange}>Ideal: {field.ideal}</Text>
@@ -624,5 +650,9 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.small.fontSize,
     color: theme.colors.darkBlue,
     textAlign: 'center',
+  },
+  measuredField: {
+    borderColor: theme.colors.success,
+    backgroundColor: 'rgba(76, 175, 80, 0.05)',
   },
 });
