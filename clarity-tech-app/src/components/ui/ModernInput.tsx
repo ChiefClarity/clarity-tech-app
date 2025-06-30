@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   inputWeb: {
-    outline: 'none',
+    outlineStyle: 'none',
     borderWidth: 0,
     backgroundColor: 'transparent',
   },

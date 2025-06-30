@@ -5,7 +5,8 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Platform
+  Platform,
+  ActivityIndicator
 } from 'react-native';
 import { useForm, Controller, useFormContext, FormProvider, useWatch, Control, UseFormSetValue, UseFormGetValues, FieldErrors, UseFormTrigger } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -23,6 +24,7 @@ import { webAlert } from '../utils/webAlert';
 import { FEATURES, AI_ENDPOINTS } from '../../../../config/features';
 import { AIInsightsService } from '../../../../services/ai/aiInsights';
 import { apiClient } from '../../../../services/api/client';
+import { satelliteAnalyzer } from '../../../../services/ai/satelliteAnalyzer';
 
 // Constants
 const MAX_SKIMMERS = 10;
@@ -334,56 +336,6 @@ const SizeShapeSection = memo(({
   toggleFeature
 }: any) => (
   <View>
-    {/* AI Satellite Analyzer */}
-    <View style={styles.aiAnalyzerSection}>
-      <View style={styles.analysisHeader}>
-        <Ionicons name="globe" size={24} color={theme.colors.aiPink} />
-        <Text style={styles.analysisTitle}>AI Satellite Analysis</Text>
-      </View>
-      <Text style={styles.analysisDescription}>
-        Automatically detect pool dimensions and shape from satellite imagery
-      </Text>
-      
-      <TouchableOpacity
-        style={[styles.analysisButton, satelliteAnalyzed && styles.analysisButtonCompleted]}
-        onPress={handleSatelliteAnalysis}
-        disabled={isAnalyzingSatellite}
-      >
-        <LinearGradient
-          colors={satelliteAnalyzed ? [theme.colors.success, theme.colors.success] : [theme.colors.aiPink, theme.colors.aiPink]}
-          style={styles.analysisButtonGradient}
-        >
-          {isAnalyzingSatellite ? (
-            <Ionicons name="sync" size={20} color="white" />
-          ) : satelliteAnalyzed ? (
-            <Ionicons name="checkmark-circle" size={20} color="white" />
-          ) : (
-            <Ionicons name="globe" size={20} color="white" />
-          )}
-          <Text style={styles.analysisButtonText}>
-            {isAnalyzingSatellite ? 'Analyzing...' : satelliteAnalyzed ? 'Analysis Complete' : 'Analyze Pool'}
-          </Text>
-        </LinearGradient>
-      </TouchableOpacity>
-      
-      {satelliteAnalysisResult && (
-        <View style={[
-          styles.analysisResultBanner,
-          satelliteAnalysisResult.success ? styles.successBanner : styles.errorBanner
-        ]}>
-          <Ionicons 
-            name={satelliteAnalysisResult.success ? "checkmark-circle" : "close-circle"} 
-            size={20} 
-            color={satelliteAnalysisResult.success ? theme.colors.success : theme.colors.error} 
-          />
-          <Text style={styles.analysisResultText}>
-            {satelliteAnalysisResult.message}
-            {satelliteAnalysisResult.confidence && ` - ${satelliteAnalysisResult.confidence}% confidence`}
-          </Text>
-        </View>
-      )}
-    </View>
-    
     {/* Pool Type */}
     <Text style={styles.fieldLabel}>Pool Type</Text>
     <View style={styles.typeButtons}>
@@ -410,6 +362,70 @@ const SizeShapeSection = memo(({
         </Text>
       </TouchableOpacity>
     </View>
+    
+    {/* Satellite Analysis Section */}
+    {session?.customerInfo?.address && (
+      <View style={styles.satelliteSection}>
+        <View style={styles.satelliteHeader}>
+          <Ionicons name="satellite-outline" size={24} color={theme.colors.blueGreen} />
+          <Text style={styles.satelliteTitle}>AI Satellite Analysis</Text>
+        </View>
+        
+        <Text style={styles.satelliteDescription}>
+          Analyze satellite imagery to automatically detect pool dimensions and features
+        </Text>
+        
+        <TouchableOpacity
+          style={[
+            styles.satelliteButton,
+            isAnalyzingSatellite && styles.satelliteButtonDisabled
+          ]}
+          onPress={handleSatelliteAnalysis}
+          disabled={isAnalyzingSatellite || !session?.customerInfo?.address}
+        >
+          {isAnalyzingSatellite ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <>
+              <Ionicons name="scan-outline" size={20} color="white" />
+              <Text style={styles.satelliteButtonText}>
+                Analyze Property
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+        
+        {satelliteAnalyzed && (
+          <View style={styles.satelliteResultCard}>
+            <Ionicons 
+              name="checkmark-circle" 
+              size={20} 
+              color={theme.colors.success} 
+            />
+            <Text style={styles.satelliteResultText}>
+              Pool detected and dimensions auto-filled
+            </Text>
+          </View>
+        )}
+        
+        {satelliteAnalysisResult && (
+          <View style={[
+            styles.analysisResultBanner,
+            satelliteAnalysisResult.success ? styles.successBanner : styles.errorBanner
+          ]}>
+            <Ionicons 
+              name={satelliteAnalysisResult.success ? "checkmark-circle" : "close-circle"} 
+              size={20} 
+              color={satelliteAnalysisResult.success ? theme.colors.success : theme.colors.error} 
+            />
+            <Text style={styles.analysisResultText}>
+              {satelliteAnalysisResult.message}
+              {satelliteAnalysisResult.confidence && ` - ${satelliteAnalysisResult.confidence}% confidence`}
+            </Text>
+          </View>
+        )}
+      </View>
+    )}
     
     {/* Pool Shape */}
     <Text style={styles.fieldLabel}>Pool Shape</Text>
@@ -1428,114 +1444,87 @@ export const PoolDetailsStep: React.FC = () => {
   };
 
   const handleSatelliteAnalysis = async () => {
-    const customerAddress = session?.customerInfo?.address;
-    const customerCity = session?.customerInfo?.city;
-    const customerState = session?.customerInfo?.state;
-    
-    if (!customerAddress || !customerCity || !customerState) {
+    const customerInfo = session?.customerInfo;
+    if (!customerInfo?.address || !customerInfo?.city || !customerInfo?.state) {
       webAlert.alert('Address Required', 'Complete customer address is needed for satellite analysis.');
       return;
     }
 
     setIsAnalyzingSatellite(true);
+    setSatelliteAnalysisResult(null);
+
     try {
-      // Get customer address from context
-      const fullAddress = `${customerAddress}, ${customerCity}, ${customerState}`;
+      const fullAddress = `${customerInfo.address}, ${customerInfo.city}, ${customerInfo.state} ${customerInfo.zip || ''}`.trim();
       
-      // Use real API if enabled
-      if (FEATURES.USE_REAL_AI) {
-        const response = await apiClient.post('/api/ai/analyze-pool-satellite', {
-          sessionId: session?.id,
-          address: fullAddress
-        });
+      const result = await satelliteAnalyzer.analyzePoolFromAddress(
+        fullAddress,
+        session?.id || 'temp-session'
+      );
+      
+      if (result.success && result.analysis.poolDetected) {
+        const { poolDimensions, poolShape, poolFeatures } = result.analysis;
         
-        const result = (response.data as any).analysis;
-        
-        // Auto-fill detected dimensions if available
-        if (result.poolDimensions) {
-          setValue('length', result.poolDimensions.length, { shouldValidate: true });
-          setValue('width', result.poolDimensions.width, { shouldValidate: true });
-          
-          if (result.shape) {
-            setValue('shape', result.shape, { shouldValidate: true });
-          }
+        if (poolDimensions) {
+          setValue('length', poolDimensions.length, { shouldValidate: true });
+          setValue('width', poolDimensions.width, { shouldValidate: true });
+          setValue('surfaceArea', poolDimensions.surfaceArea, { shouldValidate: true });
         }
         
-        // Update insights
-        setIsAnalyzingInsights(true);
-        const insights = await AIInsightsService.getPoolDetailsInsights(
-          getValues(),
-          result
-        );
-        setAiInsights(insights);
-        setIsAnalyzingInsights(false);
+        if (poolShape) {
+          setValue('shape', poolShape, { shouldValidate: true });
+        }
         
-        setSatelliteAnalysisResult({
-          success: true,
-          confidence: Math.round((result.confidence || 0.85) * 100),
-          message: `Pool detected: ${result.poolDimensions?.length || '??'}' x ${result.poolDimensions?.width || '??'}' ${result.shape || 'pool'}`
-        });
-      } else {
-        // Mock mode
-        const result = await analyzeSatelliteImage(fullAddress);
+        if (poolFeatures) {
+          if (poolFeatures.hasSpillover) setValue('hasSpillover', true);
+          if (poolFeatures.hasSpa) setValue('hasSpa', true);
+          if (poolFeatures.hasWaterFeature) setValue('hasWaterfall', true);
+        }
         
-        // CRITICAL: Update values with proper form state management
-        const updates = {
-          shape: result.shape,
-          length: result.length,
-          width: result.width,
-          surfaceArea: result.surfaceArea,
-          poolType: result.poolType || poolType
-        };
+        if (result.analysis.propertyFeatures?.treeCount) {
+          setValue('nearbyTrees', true);
+          setValue('treeTypes', `Detected ${result.analysis.propertyFeatures.treeCount} trees nearby`);
+        }
         
-        // Batch update all values
-        Object.entries(updates).forEach(([field, value]) => {
-          setValue(field as keyof PoolDetailsData, value, { 
-            shouldValidate: true, 
-            shouldDirty: true,
-            shouldTouch: true 
-          });
-        });
+        const shallowDepth = watch('shallowDepth');
+        const deepDepth = watch('deepDepth');
         
-        // CRITICAL: Force form to re-render by resetting with current values
-        const allValues = getValues();
-        reset({
-          ...allValues,
-          ...updates
-        }, {
-          keepValues: false,
-          keepDirty: true,
-          keepErrors: true
-        });
-        
-        // Force calculation update
-        setCalcTrigger(prev => prev + 1);
+        if (poolDimensions && shallowDepth && deepDepth) {
+          const avgDepth = satelliteAnalyzer.calculateAverageDepth(
+            parseFloat(shallowDepth),
+            parseFloat(deepDepth)
+          );
+          const gallons = satelliteAnalyzer.calculateGallons(
+            poolDimensions.surfaceArea,
+            avgDepth
+          );
+          setValue('gallons', gallons, { shouldValidate: true });
+        }
         
         setSatelliteAnalyzed(true);
         setSatelliteAnalysisResult({
           success: true,
-          confidence: Math.round(result.confidence * 100),
-          surfaceArea: result.surfaceArea,
-          message: `${result.poolType === 'aboveGround' ? 'Above-ground' : 'In-ground'} pool detected: ${result.length}' x ${result.width}' ${result.shape}`
+          confidence: Math.round(result.analysis.confidence * 100),
+          message: `Pool detected: ${poolDimensions?.length}' x ${poolDimensions?.width}' ${poolShape}`,
+          surfaceArea: poolDimensions?.surfaceArea
+        });
+        
+        await updatePoolDetails(getValues());
+        
+      } else {
+        setSatelliteAnalysisResult({
+          success: false,
+          message: 'No pool detected in satellite imagery'
         });
       }
-      
-      
-      setSatelliteAnalyzed(true);
-      
-      // Auto-save after short delay
-      setTimeout(() => {
-        handleFieldBlur('satellite-analysis', getValues());
-      }, 100);
-      
-      setTimeout(() => setSatelliteAnalysisResult(null), 5000);
     } catch (error) {
+      console.error('Satellite analysis error:', error);
       setSatelliteAnalysisResult({
         success: false,
-        message: 'Unable to analyze satellite imagery'
+        message: 'Failed to analyze satellite imagery. Please enter dimensions manually.'
       });
     } finally {
       setIsAnalyzingSatellite(false);
+      setTimeout(() => setSatelliteAnalysisResult(null), 5000);
     }
   };
   
@@ -2269,5 +2258,66 @@ const styles = StyleSheet.create({
     color: theme.colors.white,
     fontSize: theme.typography.body.fontSize,
     fontWeight: '600',
+  },
+  satelliteSection: {
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: 'rgba(78, 172, 178, 0.05)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(78, 172, 178, 0.2)',
+  },
+  satelliteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  satelliteTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: theme.colors.darkBlue,
+    marginLeft: 8,
+  },
+  satelliteDescription: {
+    fontSize: 14,
+    color: theme.colors.gray,
+    marginBottom: 16,
+  },
+  satelliteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.blueGreen,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  satelliteButtonDisabled: {
+    opacity: 0.7,
+  },
+  satelliteButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  satelliteResultCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderRadius: 8,
+  },
+  satelliteResultText: {
+    marginLeft: 8,
+    color: theme.colors.success,
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
