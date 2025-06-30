@@ -1,0 +1,27 @@
+export const POOL_ICONS = {
+  satellite: 'satellite-outline',
+  scan: 'scan-outline',
+  checkmark: 'checkmark-circle',
+  close: 'close-circle',
+  water: 'water-outline',
+  sync: 'sync-outline',
+  globe: 'globe-outline',
+  location: 'location-outline',
+  filter: 'filter-outline',
+  brush: 'brush-outline',
+  leaf: 'leaf-outline',
+  square: 'square-outline',
+  ellipse: 'ellipse-outline',
+  shapes: 'shapes-outline',
+  help: 'help-circle-outline',
+  chevronUp: 'chevron-up',
+  chevronDown: 'chevron-down',
+  camera: 'camera-outline',
+  add: 'add-outline',
+  remove: 'remove-outline',
+  refresh: 'refresh-outline',
+  analytics: 'analytics-outline',
+  bulb: 'bulb-outline',
+} as const;
+
+export type PoolIconName = typeof POOL_ICONS[keyof typeof POOL_ICONS];

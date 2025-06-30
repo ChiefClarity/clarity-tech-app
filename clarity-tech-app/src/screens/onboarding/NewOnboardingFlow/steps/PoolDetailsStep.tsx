@@ -25,6 +25,7 @@ import { FEATURES, AI_ENDPOINTS } from '../../../../config/features';
 import { AIInsightsService } from '../../../../services/ai/aiInsights';
 import { apiClient } from '../../../../services/api/client';
 import { satelliteAnalyzer } from '../../../../services/ai/satelliteAnalyzer';
+import { POOL_ICONS } from '../../../../constants/icons';
 
 // Constants
 const MAX_SKIMMERS = 10;
@@ -333,7 +334,8 @@ const SizeShapeSection = memo(({
   satelliteAnalysisResult,
   handleSatelliteAnalysis,
   selectedFeatures,
-  toggleFeature
+  toggleFeature,
+  session
 }: any) => (
   <View>
     {/* Pool Type */}
@@ -367,7 +369,7 @@ const SizeShapeSection = memo(({
     {session?.customerInfo?.address && (
       <View style={styles.satelliteSection}>
         <View style={styles.satelliteHeader}>
-          <Ionicons name="satellite-outline" size={24} color={theme.colors.blueGreen} />
+          <Ionicons name={POOL_ICONS.satellite} size={24} color={theme.colors.blueGreen} />
           <Text style={styles.satelliteTitle}>AI Satellite Analysis</Text>
         </View>
         
@@ -387,7 +389,7 @@ const SizeShapeSection = memo(({
             <ActivityIndicator color="white" />
           ) : (
             <>
-              <Ionicons name="scan-outline" size={20} color="white" />
+              <Ionicons name={POOL_ICONS.scan} size={20} color="white" />
               <Text style={styles.satelliteButtonText}>
                 Analyze Property
               </Text>
@@ -398,7 +400,7 @@ const SizeShapeSection = memo(({
         {satelliteAnalyzed && (
           <View style={styles.satelliteResultCard}>
             <Ionicons 
-              name="checkmark-circle" 
+              name={POOL_ICONS.checkmark} 
               size={20} 
               color={theme.colors.success} 
             />
@@ -414,7 +416,7 @@ const SizeShapeSection = memo(({
             satelliteAnalysisResult.success ? styles.successBanner : styles.errorBanner
           ]}>
             <Ionicons 
-              name={satelliteAnalysisResult.success ? "checkmark-circle" : "close-circle"} 
+              name={satelliteAnalysisResult.success ? POOL_ICONS.checkmark : POOL_ICONS.close} 
               size={20} 
               color={satelliteAnalysisResult.success ? theme.colors.success : theme.colors.error} 
             />
@@ -1134,20 +1136,21 @@ const SkimmerMiniSection: React.FC<SkimmerMiniSectionProps> = memo(({
 export const PoolDetailsStep: React.FC = () => {
   console.log('=== DIAGNOSTIC START ===');
   console.log('1. Component rendering');
-  console.log('2. Hooks available:', {
-    useOnboarding: typeof useOnboarding,
-    useForm: typeof useForm,
-    useWatch: typeof useWatch
-  });
   
-  // Add safety check for context availability
-  const onboardingContext = useOnboarding();
-  if (!onboardingContext) {
-    console.error('useOnboarding hook not available');
-    return <View><Text>Loading...</Text></View>;
+  // STEP 1: Get context FIRST
+  const { session, updatePoolDetails, nextStep } = useOnboarding();
+  
+  // STEP 2: Handle loading state properly
+  if (!session) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4EACB2" />
+        <Text style={styles.loadingText}>Loading pool details...</Text>
+      </View>
+    );
   }
   
-  const { session, updatePoolDetails, nextStep } = onboardingContext;
+  // STEP 3: Initialize state hooks AFTER we have session
   const [expandedSections, setExpandedSections] = useState<string[]>([
     'size-shape',
     'surface',
@@ -1155,11 +1158,15 @@ export const PoolDetailsStep: React.FC = () => {
     'skimmers',
     'deck'
   ]);
-  const [skimmerCount, setSkimmerCount] = useState(0);
+  const [skimmerCount, setSkimmerCount] = useState(
+    session?.poolDetails?.skimmerCount || 0
+  );
   const [environmentPhotos, setEnvironmentPhotos] = useState<string[]>([]);
   const [surfacePhotos, setSurfacePhotos] = useState<string[]>([]);
   const [deckPhotos, setDeckPhotos] = useState<string[]>([]);
-  const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
+  const [selectedFeatures, setSelectedFeatures] = useState<string[]>(
+    session?.poolDetails?.features || []
+  );
   const [isAnalyzingSatellite, setIsAnalyzingSatellite] = useState(false);
   const [satelliteAnalyzed, setSatelliteAnalyzed] = useState(false);
   const [satelliteAnalysisResult, setSatelliteAnalysisResult] = useState<any>(null);
@@ -1169,12 +1176,12 @@ export const PoolDetailsStep: React.FC = () => {
   const scrollViewRef = useRef<ScrollView>(null);
   const sectionRefs = useRef<{ [key: string]: View | null }>({});
   
+  // STEP 4: NOW initialize form with session data
   const formMethods = useForm<PoolDetailsData>({
     resolver: zodResolver(poolDetailsSchema),
-    mode: 'onChange', // Important for visual updates
+    mode: 'onChange',
     reValidateMode: 'onBlur',
     defaultValues: {
-      ...session?.poolDetails,
       poolType: session?.poolDetails?.poolType || session?.poolDetails?.type || undefined,
       shape: session?.poolDetails?.shape || undefined,
       length: session?.poolDetails?.length || undefined,
@@ -1198,16 +1205,10 @@ export const PoolDetailsStep: React.FC = () => {
     },
   });
   
-  const { control, handleSubmit, reset, setValue, getValues, trigger, formState: { errors } } = formMethods;
+  // Destructure ALL needed methods at component level
+  const { control, handleSubmit, reset, setValue, getValues, trigger, watch, formState: { errors } } = formMethods;
   
-  console.log('3. Form initialized:', !!control);
-  console.log('4. Form methods:', Object.keys(formMethods));
-  
-  // Safety check for form methods
-  if (!control || !setValue || !getValues) {
-    console.error('Form methods not properly initialized');
-    return <View><Text>Form loading...</Text></View>;
-  }
+  // Continue with the rest of the component...
   
   // Watch ONLY fields that need visual updates - individual watches to prevent destructuring issues
   console.log('5. About to call useWatch');
@@ -1229,6 +1230,53 @@ export const PoolDetailsStep: React.FC = () => {
   // Add field save timeout ref and animation frame ref
   const fieldSaveTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
   const animationFrameRef = useRef<number>();
+  
+  // Type-safe feature management
+  const updatePoolFeatures = useCallback((detectedFeatures: {
+    hasSpillover?: boolean;
+    hasSpa?: boolean;
+    hasWaterFeature?: boolean;
+  }) => {
+    const currentFeatures = getValues('features') || [];
+    const featureMap = {
+      hasSpillover: 'spillover',
+      hasSpa: 'spa',
+      hasWaterFeature: 'waterfall'
+    };
+    
+    const newFeatures = [...currentFeatures];
+    Object.entries(detectedFeatures).forEach(([key, value]) => {
+      const featureName = featureMap[key as keyof typeof featureMap];
+      if (value && featureName && !newFeatures.includes(featureName)) {
+        newFeatures.push(featureName);
+      }
+    });
+    
+    setValue('features', newFeatures, { shouldValidate: true });
+  }, [getValues, setValue]);
+  
+  // Type-safe field validation
+  const safeSetValue = useCallback((
+    fieldName: keyof PoolDetailsData,
+    value: any,
+    options?: { shouldValidate?: boolean }
+  ) => {
+    // Type-safe field setting
+    const validFields: (keyof PoolDetailsData)[] = [
+      'poolType', 'shape', 'length', 'width', 'avgDepth',
+      'deepEndDepth', 'shallowEndDepth', 'volume', 'surfaceArea',
+      'surfaceMaterial', 'surfaceCondition', 'features',
+      'nearbyTrees', 'treeTypes', 'sprinklerSystem',
+      'surfaceStains', 'stainTypes', 'deckCleanliness', 'deckMaterial',
+      'skimmerCount'
+    ];
+    
+    if (validFields.includes(fieldName)) {
+      setValue(fieldName, value, options);
+    } else {
+      console.warn(`Attempted to set invalid field: ${fieldName}`);
+    }
+  }, [setValue]);
   
   // Custom hook for pool calculations
   const calculatedValues = useMemo(() => {
@@ -1443,17 +1491,16 @@ export const PoolDetailsStep: React.FC = () => {
     };
   };
 
-  const handleSatelliteAnalysis = async () => {
-    const customerInfo = session?.customerInfo;
-    if (!customerInfo?.address || !customerInfo?.city || !customerInfo?.state) {
-      webAlert.alert('Address Required', 'Complete customer address is needed for satellite analysis.');
-      return;
-    }
-
-    setIsAnalyzingSatellite(true);
-    setSatelliteAnalysisResult(null);
-
+  const handleSatelliteAnalysis = useCallback(async () => {
     try {
+      // Validation
+      const customerInfo = session?.customerInfo;
+      if (!customerInfo?.address || !customerInfo?.city || !customerInfo?.state) {
+        throw new Error('Complete customer address is required for satellite analysis');
+      }
+
+      setIsAnalyzingSatellite(true);
+      setSatelliteAnalysisResult(null);
       const fullAddress = `${customerInfo.address}, ${customerInfo.city}, ${customerInfo.state} ${customerInfo.zip || ''}`.trim();
       
       const result = await satelliteAnalyzer.analyzePoolFromAddress(
@@ -1475,9 +1522,11 @@ export const PoolDetailsStep: React.FC = () => {
         }
         
         if (poolFeatures) {
-          if (poolFeatures.hasSpillover) setValue('hasSpillover', true);
-          if (poolFeatures.hasSpa) setValue('hasSpa', true);
-          if (poolFeatures.hasWaterFeature) setValue('hasWaterfall', true);
+          updatePoolFeatures({
+            hasSpillover: poolFeatures.hasSpillover,
+            hasSpa: poolFeatures.hasSpa,
+            hasWaterFeature: poolFeatures.hasWaterFeature
+          });
         }
         
         if (result.analysis.propertyFeatures?.treeCount) {
@@ -1518,15 +1567,26 @@ export const PoolDetailsStep: React.FC = () => {
       }
     } catch (error) {
       console.error('Satellite analysis error:', error);
+      
+      // Proper error typing
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Failed to analyze satellite imagery';
+      
       setSatelliteAnalysisResult({
         success: false,
-        message: 'Failed to analyze satellite imagery. Please enter dimensions manually.'
+        message: errorMessage
       });
+      
+      // Report to error tracking service
+      if (typeof window !== 'undefined' && (window as any).Sentry) {
+        (window as any).Sentry.captureException(error);
+      }
     } finally {
       setIsAnalyzingSatellite(false);
       setTimeout(() => setSatelliteAnalysisResult(null), 5000);
     }
-  };
+  }, [session, setValue, getValues, watch, updatePoolDetails, updatePoolFeatures]);
   
   
   console.log('7. About to render component');
@@ -1621,6 +1681,7 @@ export const PoolDetailsStep: React.FC = () => {
                     handleSatelliteAnalysis={handleSatelliteAnalysis}
                     selectedFeatures={selectedFeatures}
                     toggleFeature={toggleFeature}
+                    session={session}
                   />
                 )}
                 {section.id === 'surface' && (
@@ -2319,5 +2380,16 @@ const styles = StyleSheet.create({
     color: theme.colors.success,
     fontSize: 14,
     fontWeight: '500',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666666',
   },
 });
