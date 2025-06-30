@@ -1,5 +1,5 @@
 import { apiClient } from '../api/client';
-import { FEATURES } from '../../config/featureFlags';
+import { FEATURES } from '../../config/features';
 
 export interface SatelliteAnalysisResult {
   success: boolean;
@@ -40,26 +40,51 @@ export class SatelliteAnalyzer {
     address: string, 
     sessionId: string
   ): Promise<SatelliteAnalysisResult> {
+    console.log('🛰️ [SatelliteAnalyzer] Starting analysis:', {
+      address,
+      sessionId,
+      USE_REAL_AI: FEATURES.USE_REAL_AI,
+      AI_SATELLITE_ANALYSIS: FEATURES.AI_SATELLITE_ANALYSIS
+    });
+    
     if (FEATURES.USE_REAL_AI) {
       try {
-        console.log('🛰️ Starting satellite analysis for:', address);
+        console.log('🔌 [SatelliteAnalyzer] Making API call to:', '/ai/analyze-pool-satellite');
         
-        const response = await apiClient.post('/api/ai/analyze-pool-satellite', {
+        const response = await apiClient.post('/ai/analyze-pool-satellite', {
           address,
           sessionId
+        });
+
+        console.log('🔍 [SatelliteAnalyzer] Response type:', typeof response);
+        console.log('🔍 [SatelliteAnalyzer] Response keys:', Object.keys(response));
+        console.log('🔍 [SatelliteAnalyzer] Response.data type:', typeof response.data);
+        console.log('🔍 [SatelliteAnalyzer] Full response structure:', response);
+        
+        console.log('📡 [SatelliteAnalyzer] Raw API response:', {
+          success: response.success,
+          hasData: !!response.data,
+          dataKeys: response.data ? Object.keys(response.data) : [],
+          fullResponse: JSON.stringify(response, null, 2)
         });
         
         if (!response.success) {
           throw new Error(response.error || 'Satellite analysis failed');
         }
         
-        console.log('✅ Satellite analysis complete:', response.data);
-        return response.data as SatelliteAnalysisResult;
-      } catch (error) {
-        console.error('❌ Satellite analysis error:', error);
+        console.log('✅ [SatelliteAnalyzer] Returning analysis data');
+        // The apiClient returns the response directly for AI endpoints
+        return response as SatelliteAnalysisResult;
+      } catch (error: any) {
+        console.error('❌ [SatelliteAnalyzer] API call failed:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status
+        });
         throw error;
       }
     } else {
+      console.log('🎭 [SatelliteAnalyzer] Using MOCK data (USE_REAL_AI is false)');
       return this.getMockAnalysis(address);
     }
   }
