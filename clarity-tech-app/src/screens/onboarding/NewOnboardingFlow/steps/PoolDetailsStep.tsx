@@ -670,69 +670,35 @@ const SurfaceSection = memo(({
                   // Create SurfaceAnalysisMapper instance
                   const mapper = new SurfaceAnalysisMapper(setValue, control);
                   
-                  // Map the AI response to form fields
-                  mapper.mapResponseToForm({
-                    surface_type: analysis.type || analysis.surface_type,
-                    material: analysis.material,
-                    condition: analysis.condition,
-                    age_estimate: analysis.age_estimate,
-                    issues_detected: {
-                      stains: {
-                        present: analysis.issues?.stains && analysis.issues.stains !== 'none',
-                        severity: analysis.issues?.stains === 'light' ? 'minor' : 
-                                  analysis.issues?.stains === 'heavy' ? 'severe' : 
-                                  analysis.issues?.stains === 'moderate' ? 'moderate' : undefined
-                      },
-                      cracks: {
-                        present: analysis.issues?.cracks && analysis.issues.cracks !== 'none',
-                        severity: analysis.issues?.cracks === 'major' ? 'severe' : 
-                                  analysis.issues?.cracks === 'minor' ? 'minor' : undefined
-                      },
-                      roughness: {
-                        present: analysis.issues?.roughness && analysis.issues.roughness !== 'smooth',
-                        scale: analysis.issues?.roughness === 'slightly rough' ? 3 :
-                               analysis.issues?.roughness === 'moderately rough' ? 5 :
-                               analysis.issues?.roughness === 'rough' ? 7 :
-                               analysis.issues?.roughness === 'very rough' ? 9 : 5
-                      },
-                      discoloration: {
-                        present: analysis.issues?.discoloration && analysis.issues.discoloration !== 'none',
-                        severity: analysis.issues?.discoloration === 'light' ? 'minor' : 
-                                  analysis.issues?.discoloration === 'heavy' ? 'severe' : 
-                                  analysis.issues?.discoloration === 'moderate' ? 'moderate' : undefined
-                      },
-                      etching: analysis.issues?.etching ? {
-                        present: true,
-                        severity: analysis.issues.etching === 'light' ? 'minor' : 
-                                  analysis.issues.etching === 'heavy' ? 'severe' : 'moderate'
-                      } : undefined,
-                      scaling: analysis.issues?.scaling ? {
-                        present: true,
-                        severity: analysis.issues.scaling === 'light' ? 'minor' : 
-                                  analysis.issues.scaling === 'heavy' ? 'severe' : 'moderate'
-                      } : undefined,
-                      chipping: analysis.issues?.chipping ? {
-                        present: true,
-                        severity: analysis.issues.chipping === 'light' ? 'minor' : 
-                                  analysis.issues.chipping === 'heavy' ? 'severe' : 'moderate'
-                      } : undefined,
-                      hollow_spots: analysis.issues?.hollow_spots ? {
-                        present: true,
-                        count: typeof analysis.issues.hollow_spots === 'number' ? 
-                               analysis.issues.hollow_spots : undefined
-                      } : undefined
-                    },
-                    recommendations: analysis.recommendations,
-                    confidence: analysis.confidence
-                  });
+                  // Map the AI response to form fields - pass the analysis directly
+                  mapper.mapResponseToForm(analysis);
                   
-                  // Handle field blur for all updated fields
+                  // Handle field blur for material and condition
                   if (analysis.material) {
                     handleFieldBlur('surfaceMaterial', analysis.material.toLowerCase());
                   }
                   if (analysis.condition) {
                     handleFieldBlur('surfaceCondition', analysis.condition.toLowerCase());
                   }
+                  
+                  // Trigger field blur for all issue fields that were set
+                  const issueFields = [
+                    'surfaceIssues.stains',
+                    'surfaceIssues.stainSeverity',
+                    'surfaceIssues.cracks', 
+                    'surfaceIssues.crackSeverity',
+                    'surfaceIssues.roughTexture',
+                    'surfaceIssues.roughnessLevel',
+                    'surfaceIssues.discoloration',
+                    'surfaceIssues.discolorationSeverity'
+                  ];
+                  
+                  issueFields.forEach(field => {
+                    const value = control._formValues?.[field];
+                    if (value !== undefined) {
+                      handleFieldBlur(field, value);
+                    }
+                  });
                 }
               } catch (error) {
                 console.error('Surface analysis failed:', error);
