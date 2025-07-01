@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { useOnboarding } from '../../../../contexts/OnboardingContext';
-import { ModernInput } from '../../../../components/ui/ModernInput';
+import { EnhancedFloatingInput } from '../../../../components/ui/EnhancedFloatingInput';
 import { AIPhotoAnalyzer } from '../../../../components/ui/AIPhotoAnalyzer';
 import { AIInsightsBox } from '../../../../components/common/AIInsightsBox';
 import { theme } from '../../../../styles/theme';
@@ -474,14 +474,14 @@ const PumpSection: React.FC<{ data: any; onChange: (field: string, value: any) =
 
     <View style={styles.row}>
       <View style={styles.halfField}>
-        <ModernInput
+        <EnhancedFloatingInput
           label="Manufacturer"
           value={data.pumpManufacturer || ''}
           onChangeText={(text) => onChange('pumpManufacturer', text)}
         />
       </View>
       <View style={styles.halfField}>
-        <ModernInput
+        <EnhancedFloatingInput
           label="Model"
           value={data.pumpModel || ''}
           onChangeText={(text) => onChange('pumpModel', text)}
@@ -489,7 +489,7 @@ const PumpSection: React.FC<{ data: any; onChange: (field: string, value: any) =
       </View>
     </View>
 
-    <ModernInput
+    <EnhancedFloatingInput
       label="Serial Number"
       value={data.pumpSerialNumber || ''}
       onChangeText={(text) => onChange('pumpSerialNumber', text)}
@@ -542,7 +542,7 @@ const PumpSection: React.FC<{ data: any; onChange: (field: string, value: any) =
       </TouchableOpacity>
     </View>
 
-    <ModernInput
+    <EnhancedFloatingInput
       label="Additional Notes"
       value={data.pumpNotes || ''}
       onChangeText={(text) => onChange('pumpNotes', text)}
@@ -578,14 +578,14 @@ const FilterSection: React.FC<{ data: any; onChange: (field: string, value: any)
 
     <View style={styles.row}>
       <View style={styles.halfField}>
-        <ModernInput
+        <EnhancedFloatingInput
           label="Manufacturer"
           value={data.filterManufacturer || ''}
           onChangeText={(text) => onChange('filterManufacturer', text)}
         />
       </View>
       <View style={styles.halfField}>
-        <ModernInput
+        <EnhancedFloatingInput
           label="Model"
           value={data.filterModel || ''}
           onChangeText={(text) => onChange('filterModel', text)}
@@ -593,7 +593,7 @@ const FilterSection: React.FC<{ data: any; onChange: (field: string, value: any)
       </View>
     </View>
 
-    <ModernInput
+    <EnhancedFloatingInput
       label="Serial Number"
       value={data.filterSerialNumber || ''}
       onChangeText={(text) => onChange('filterSerialNumber', text)}
@@ -626,7 +626,7 @@ const FilterSection: React.FC<{ data: any; onChange: (field: string, value: any)
 
     {data.filterType === 'cartridge' && (
       <>
-        <ModernInput
+        <EnhancedFloatingInput
           label="Cartridge Model"
           value={data.cartridgeModel || ''}
           onChangeText={(text) => onChange('cartridgeModel', text)}
@@ -662,7 +662,7 @@ const FilterSection: React.FC<{ data: any; onChange: (field: string, value: any)
       </>
     )}
 
-    <ModernInput
+    <EnhancedFloatingInput
       label="Additional Notes"
       value={data.filterNotes || ''}
       onChangeText={(text) => onChange('filterNotes', text)}
@@ -698,14 +698,14 @@ const SanitizerSection: React.FC<{ data: any; onChange: (field: string, value: a
 
     <View style={styles.row}>
       <View style={styles.halfField}>
-        <ModernInput
+        <EnhancedFloatingInput
           label="Manufacturer"
           value={data.sanitizerManufacturer || ''}
           onChangeText={(text) => onChange('sanitizerManufacturer', text)}
         />
       </View>
       <View style={styles.halfField}>
-        <ModernInput
+        <EnhancedFloatingInput
           label="Model"
           value={data.sanitizerModel || ''}
           onChangeText={(text) => onChange('sanitizerModel', text)}
@@ -713,7 +713,7 @@ const SanitizerSection: React.FC<{ data: any; onChange: (field: string, value: a
       </View>
     </View>
 
-    <ModernInput
+    <EnhancedFloatingInput
       label="Serial Number"
       value={data.sanitizerSerialNumber || ''}
       onChangeText={(text) => onChange('sanitizerSerialNumber', text)}
@@ -744,7 +744,7 @@ const SanitizerSection: React.FC<{ data: any; onChange: (field: string, value: a
       ))}
     </View>
 
-    <ModernInput
+    <EnhancedFloatingInput
       label="Additional Notes"
       value={data.sanitizerNotes || ''}
       onChangeText={(text) => onChange('sanitizerNotes', text)}
@@ -780,14 +780,14 @@ const HeaterSection: React.FC<{ data: any; onChange: (field: string, value: any)
 
     <View style={styles.row}>
       <View style={styles.halfField}>
-        <ModernInput
+        <EnhancedFloatingInput
           label="Manufacturer"
           value={data.heaterManufacturer || ''}
           onChangeText={(text) => onChange('heaterManufacturer', text)}
         />
       </View>
       <View style={styles.halfField}>
-        <ModernInput
+        <EnhancedFloatingInput
           label="Model"
           value={data.heaterModel || ''}
           onChangeText={(text) => onChange('heaterModel', text)}
@@ -795,7 +795,7 @@ const HeaterSection: React.FC<{ data: any; onChange: (field: string, value: any)
       </View>
     </View>
 
-    <ModernInput
+    <EnhancedFloatingInput
       label="Serial Number"
       value={data.heaterSerialNumber || ''}
       onChangeText={(text) => onChange('heaterSerialNumber', text)}
@@ -826,7 +826,7 @@ const HeaterSection: React.FC<{ data: any; onChange: (field: string, value: any)
       ))}
     </View>
 
-    <ModernInput
+    <EnhancedFloatingInput
       label="Additional Notes"
       value={data.heaterNotes || ''}
       onChangeText={(text) => onChange('heaterNotes', text)}
@@ -862,14 +862,14 @@ const TimerSection: React.FC<{ data: any; onChange: (field: string, value: any) 
 
     <View style={styles.row}>
       <View style={styles.halfField}>
-        <ModernInput
+        <EnhancedFloatingInput
           label="Manufacturer"
           value={data.timerManufacturer || ''}
           onChangeText={(text) => onChange('timerManufacturer', text)}
         />
       </View>
       <View style={styles.halfField}>
-        <ModernInput
+        <EnhancedFloatingInput
           label="Model"
           value={data.timerModel || ''}
           onChangeText={(text) => onChange('timerModel', text)}
@@ -881,7 +881,7 @@ const TimerSection: React.FC<{ data: any; onChange: (field: string, value: any) 
       <Text style={styles.subSectionTitle}>Current Schedule</Text>
       <View style={styles.row}>
         <View style={styles.thirdField}>
-          <ModernInput
+          <EnhancedFloatingInput
             label="Start Hour"
             value={data.timerStartHour || ''}
             onChangeText={(text) => onChange('timerStartHour', text)}
@@ -890,7 +890,7 @@ const TimerSection: React.FC<{ data: any; onChange: (field: string, value: any) 
           />
         </View>
         <View style={styles.thirdField}>
-          <ModernInput
+          <EnhancedFloatingInput
             label="Minutes"
             value={data.timerStartMinute || ''}
             onChangeText={(text) => onChange('timerStartMinute', text)}
@@ -924,7 +924,7 @@ const TimerSection: React.FC<{ data: any; onChange: (field: string, value: any) 
 
       <View style={styles.row}>
         <View style={styles.thirdField}>
-          <ModernInput
+          <EnhancedFloatingInput
             label="End Hour"
             value={data.timerEndHour || ''}
             onChangeText={(text) => onChange('timerEndHour', text)}
@@ -933,7 +933,7 @@ const TimerSection: React.FC<{ data: any; onChange: (field: string, value: any) 
           />
         </View>
         <View style={styles.thirdField}>
-          <ModernInput
+          <EnhancedFloatingInput
             label="Minutes"
             value={data.timerEndMinute || ''}
             onChangeText={(text) => onChange('timerEndMinute', text)}
@@ -976,7 +976,7 @@ const TimerSection: React.FC<{ data: any; onChange: (field: string, value: any) 
       <Text style={styles.checkboxLabel}>Timer schedule is synced correctly</Text>
     </TouchableOpacity>
 
-    <ModernInput
+    <EnhancedFloatingInput
       label="Additional Notes"
       value={data.timerNotes || ''}
       onChangeText={(text) => onChange('timerNotes', text)}
@@ -1024,7 +1024,7 @@ const ValvesSection: React.FC<{ data: any; onChange: (field: string, value: any)
       <Text style={styles.checkboxLabel}>All valves are properly labeled</Text>
     </TouchableOpacity>
 
-    <ModernInput
+    <EnhancedFloatingInput
       label="Additional Notes"
       value={data.valveNotes || ''}
       onChangeText={(text) => onChange('valveNotes', text)}
@@ -1037,14 +1037,14 @@ const ValvesSection: React.FC<{ data: any; onChange: (field: string, value: any)
 // EQUIPMENT PAD SECTION
 const EquipmentPadSection: React.FC<{ data: any; onChange: (field: string, value: any) => void }> = ({ data, onChange }) => (
   <>
-    <ModernInput
+    <EnhancedFloatingInput
       label="Pressure Gauge Reading (PSI)"
       value={data.pressureReading || ''}
       onChangeText={(text) => onChange('pressureReading', text)}
       keyboardType="numeric"
     />
 
-    <ModernInput
+    <EnhancedFloatingInput
       label="Equipment Pad Notes"
       value={data.equipmentPadNotes || ''}
       onChangeText={(text) => onChange('equipmentPadNotes', text)}

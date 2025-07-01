@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { debounce } from 'lodash';
 
-import { ModernInput } from '../../../../components/ui/ModernInput';
+import { EnhancedFloatingInput } from '../../../../components/ui/EnhancedFloatingInput';
 import { AIPhotoAnalyzer } from '../../../../components/ui/AIPhotoAnalyzer';
 import { AIInsightsBox } from '../../../../components/common/AIInsightsBox';
 import { useOnboarding } from '../../../../contexts/OnboardingContext';
@@ -339,7 +339,7 @@ export const WaterChemistryStep: React.FC = () => {
               name={field.key as keyof WaterChemistryData}
               render={({ field: { onChange, onBlur, value } }) => (
                 <View>
-                  <ModernInput
+                  <EnhancedFloatingInput
                     label={`${field.label}${measuredFields.includes(field.key) ? ' ✓' : ''}`}
                     value={String(value || '')}
                     onChangeText={onChange}
@@ -376,7 +376,7 @@ export const WaterChemistryStep: React.FC = () => {
                         name={field.key as keyof WaterChemistryData}
                         render={({ field: { onChange, onBlur, value } }) => (
                           <View>
-                            <ModernInput
+                            <EnhancedFloatingInput
                               label={`${field.label}${measuredFields.includes(field.key) ? ' ✓' : ''}`}
                               value={String(value || '')}
                               onChangeText={onChange}
@@ -435,7 +435,7 @@ export const WaterChemistryStep: React.FC = () => {
                     name={field.key as keyof WaterChemistryData}
                     render={({ field: { onChange, onBlur, value } }) => (
                       <View>
-                        <ModernInput
+                        <EnhancedFloatingInput
                           label={`${field.label}${measuredFields.includes(field.key) ? ' ✓' : ''}`}
                           value={String(value || '')}
                           onChangeText={onChange}
@@ -467,7 +467,7 @@ export const WaterChemistryStep: React.FC = () => {
               control={control}
               name="notes"
               render={({ field: { onChange, value } }) => (
-                <ModernInput
+                <EnhancedFloatingInput
                   label="Additional Notes"
                   value={value || ''}
                   onChangeText={(text) => {
@@ -541,13 +541,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(210, 226, 225, 1)',
   },
   fieldContainer: {
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.md,  // Keep this as it was (16px)
   },
   rangeInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: theme.spacing.xs,
+    marginTop: -20,       // Keep this the same
+    marginBottom: 18,     // Reduced from 24px to 18px
     paddingHorizontal: theme.spacing.xs,
   },
   idealRange: {

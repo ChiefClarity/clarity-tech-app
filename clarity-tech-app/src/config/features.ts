@@ -41,3 +41,10 @@ export const AI_ENDPOINTS = {
   ANALYZE_DECK_MATERIAL: '/ai/analyze-deck-material',
   TRANSCRIBE_VOICE: '/ai/transcribe-voice',
 };
+
+// At the very bottom of the file, add:
+console.log('🚀 [FEATURES] Loaded configuration:', {
+  USE_REAL_AI,
+  AI_SATELLITE_ANALYSIS: FEATURES.AI_SATELLITE_ANALYSIS,
+  API_BASE_URL: AI_ENDPOINTS.ANALYZE_POOL_SATELLITE
+});

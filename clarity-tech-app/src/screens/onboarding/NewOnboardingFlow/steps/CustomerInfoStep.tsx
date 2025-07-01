@@ -6,7 +6,7 @@ import * as z from 'zod';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // CRITICAL: Import EXISTING UI components - don't create new ones
-import { ModernInput } from '../../../../components/ui/ModernInput';
+import { EnhancedFloatingInput } from '../../../../components/ui/EnhancedFloatingInput';
 import { AIInsightsBox } from '../../../../components/common/AIInsightsBox';
 import { useOnboarding } from '../../../../contexts/OnboardingContext';
 import { theme } from '../../../../styles/theme';
@@ -118,7 +118,7 @@ export const CustomerInfoStep: React.FC = () => {
               control={control}
               name="firstName"
               render={({ field: { onChange, onBlur, value } }) => (
-                <ModernInput
+                <EnhancedFloatingInput
                   label="First Name"
                   value={value}
                   onChangeText={onChange}
@@ -138,7 +138,7 @@ export const CustomerInfoStep: React.FC = () => {
               control={control}
               name="lastName"
               render={({ field: { onChange, onBlur, value } }) => (
-                <ModernInput
+                <EnhancedFloatingInput
                   label="Last Name"
                   value={value}
                   onChangeText={onChange}
@@ -159,7 +159,7 @@ export const CustomerInfoStep: React.FC = () => {
           control={control}
           name="email"
           render={({ field: { onChange, onBlur, value } }) => (
-            <ModernInput
+            <EnhancedFloatingInput
               label="Email"
               value={value}
               onChangeText={onChange}
@@ -180,7 +180,7 @@ export const CustomerInfoStep: React.FC = () => {
           control={control}
           name="phone"
           render={({ field: { onChange, onBlur, value } }) => (
-            <ModernInput
+            <EnhancedFloatingInput
               label="Phone"
               value={value}
               onChangeText={onChange}
@@ -199,7 +199,7 @@ export const CustomerInfoStep: React.FC = () => {
           control={control}
           name="address"
           render={({ field: { onChange, onBlur, value } }) => (
-            <ModernInput
+            <EnhancedFloatingInput
               label="Street Address"
               value={value}
               onChangeText={onChange}
@@ -219,7 +219,7 @@ export const CustomerInfoStep: React.FC = () => {
               control={control}
               name="city"
               render={({ field: { onChange, onBlur, value } }) => (
-                <ModernInput
+                <EnhancedFloatingInput
                   label="City"
                   value={value}
                   onChangeText={onChange}
@@ -239,7 +239,7 @@ export const CustomerInfoStep: React.FC = () => {
               control={control}
               name="state"
               render={({ field: { onChange, onBlur, value } }) => (
-                <ModernInput
+                <EnhancedFloatingInput
                   label="State"
                   value={value}
                   onChangeText={onChange}
@@ -260,7 +260,7 @@ export const CustomerInfoStep: React.FC = () => {
               control={control}
               name="zipCode"
               render={({ field: { onChange, onBlur, value } }) => (
-                <ModernInput
+                <EnhancedFloatingInput
                   label="Zip"
                   value={value}
                   onChangeText={onChange}
