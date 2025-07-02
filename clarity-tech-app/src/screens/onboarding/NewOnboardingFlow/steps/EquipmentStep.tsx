@@ -19,6 +19,7 @@ import { aiService } from '../../../../services/api/ai';
 import { FEATURES } from '../../../../config/features';
 import { AIInsightsService } from '../../../../services/ai/aiInsights';
 import { Alert } from 'react-native';
+import { EquipmentAnalysisMapper } from '../../../../services/ai/equipmentAnalysisMapper';
 
 // CRITICAL: Equipment sections in EXACT order
 const EQUIPMENT_SECTIONS = [
@@ -186,70 +187,43 @@ export const EquipmentStep: React.FC = () => {
         
         // Call real AI service (compression happens inside)
         const result = await aiService.analyzeEquipment(imageData as string);
-        
-        if (result.success && result.data) {
-          console.log('✅ AI Equipment analysis successful:', result.data);
-          const { analysis } = result.data;
+
+        if (result.success && result.analysis) {  // FIX: result.analysis NOT result.data
+          const analysis = result.analysis;
           
-          // Auto-fill form with AI results based on equipment type
-          if (analysis.type.toLowerCase().includes('pump')) {
-            setEquipmentData(prev => ({
-              ...prev,
-              pumpManufacturer: analysis.brand || prev.pumpManufacturer,
-              pumpModel: analysis.model || prev.pumpModel,
-              pumpCondition: analysis.condition || prev.pumpCondition,
-            }));
-          } else if (analysis.type.toLowerCase().includes('filter')) {
-            setEquipmentData(prev => ({
-              ...prev,
-              filterManufacturer: analysis.brand || prev.filterManufacturer,
-              filterModel: analysis.model || prev.filterModel,
-              filterCondition: analysis.condition || prev.filterCondition,
-            }));
-          } else if (analysis.type.toLowerCase().includes('heater')) {
-            setEquipmentData(prev => ({
-              ...prev,
-              heaterManufacturer: analysis.brand || prev.heaterManufacturer,
-              heaterModel: analysis.model || prev.heaterModel,
-              heaterCondition: analysis.condition || prev.heaterCondition,
-            }));
-          } else if (analysis.type.toLowerCase().includes('timer')) {
-            setEquipmentData(prev => ({
-              ...prev,
-              timerType: analysis.brand?.toLowerCase().includes('digital') ? 'digital' : 
-                        analysis.brand?.toLowerCase().includes('smart') ? 'smart' : 'mechanical',
-              timerManufacturer: analysis.brand || prev.timerManufacturer,
-              timerModel: analysis.model || prev.timerModel,
-            }));
-          }
+          console.log('🎯 Equipment AI Analysis:', analysis);
+          
+          // Create mapper
+          const mapper = new EquipmentAnalysisMapper(
+            equipmentData,
+            setEquipmentData,
+            updateEquipment
+          );
+          
+          // Map AI response to form
+          await mapper.mapResponseToForm(analysis);
           
           setAnalysisComplete(true);
           setAnalysisResult({
             success: true,
-            confidence: Math.round((result.data.analysis.confidence || 0.9) * 100),
-            message: `${analysis.type} identified successfully`,
+            confidence: Math.round((analysis.confidence || 0.85) * 100),
+            message: `Equipment identified: ${analysis.equipmentType || 'Multiple items detected'}`,
           });
           
-          // Show recommendations if any
-          if (analysis.recommendations && analysis.recommendations.length > 0) {
-            Alert.alert(
-              'AI Recommendations',
-              analysis.recommendations.join('\n'),
-              [{ text: 'OK' }]
-            );
+          // Generate insights based on analysis
+          if (analysis.maintenanceNeeded && analysis.maintenanceNeeded.length > 0) {
+            const insights = [
+              ...analysis.maintenanceNeeded,
+              ...analysis.recommendations
+            ].filter(Boolean);
+            
+            if (insights.length > 0) {
+              // You can set these insights to display in an AIInsightsBox if needed
+              console.log('Equipment insights:', insights);
+            }
           }
-          
-          // Get AI insights after successful equipment analysis
-          setIsAnalyzingInsights(true);
-          const insights = await AIInsightsService.getEquipmentInsights({
-            identifiedEquipment: analysis,
-            manualEntries: equipmentData
-          });
-          setAiInsights(insights);
-          setIsAnalyzingInsights(false);
         } else {
-          console.error('❌ AI Equipment analysis failed:', result.error);
-          Alert.alert('Analysis Failed', 'Unable to analyze equipment. Please try again.');
+          throw new Error('AI analysis failed - no data returned');
         }
       } else {
         // Mock mode fallback
