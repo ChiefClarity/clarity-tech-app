@@ -31,92 +31,97 @@ export class SurfaceAnalysisMapper<T extends Record<string, any>> {
    * Maps backend surface analysis response to form fields
    */
   mapResponseToForm(response: BackendSurfaceResponse): void {
-    console.log('🎯 Mapping surface analysis to form:', response);
+    console.log('🎯 SurfaceAnalysisMapper.mapResponseToForm called with:', response);
 
-    // Map material
+    // Map material - backend already normalized it
     if (response.material) {
+      console.log('📝 Setting surfaceMaterial to:', response.material.toLowerCase());
       this.setValue('surfaceMaterial' as any, response.material.toLowerCase());
     }
 
-    // Map condition
+    // Map condition - backend already normalized it
     if (response.condition) {
+      console.log('📝 Setting surfaceCondition to:', response.condition.toLowerCase());
       this.setValue('surfaceCondition' as any, response.condition.toLowerCase());
     }
 
-    // Map surface issues
+    // Map surface issues - convert string severities to boolean + severity
     if (response.issues) {
+      console.log('📝 Processing issues:', response.issues);
       const issues = response.issues;
       
       // Stains
-      if (issues.stains && issues.stains !== 'none') {
-        this.setValue('surfaceIssues.stains' as any, true);
-        this.setValue('surfaceIssues.stainSeverity' as any, this.mapSeverity(issues.stains));
-      } else {
-        this.setValue('surfaceIssues.stains' as any, false);
+      const hasStains = issues.stains && issues.stains !== 'none';
+      console.log('📝 Setting surfaceIssues.stains to:', hasStains);
+      this.setValue('surfaceIssues.stains' as any, hasStains);
+      if (hasStains) {
+        const stainSeverity = this.mapSeverity(issues.stains!);
+        console.log('📝 Setting surfaceIssues.stainSeverity to:', stainSeverity);
+        this.setValue('surfaceIssues.stainSeverity' as any, stainSeverity);
       }
 
       // Cracks
-      if (issues.cracks && issues.cracks !== 'none') {
-        this.setValue('surfaceIssues.cracks' as any, true);
-        this.setValue('surfaceIssues.crackSeverity' as any, this.mapCrackSeverity(issues.cracks));
-      } else {
-        this.setValue('surfaceIssues.cracks' as any, false);
+      const hasCracks = issues.cracks && issues.cracks !== 'none';
+      console.log('📝 Setting surfaceIssues.cracks to:', hasCracks);
+      this.setValue('surfaceIssues.cracks' as any, hasCracks);
+      if (hasCracks) {
+        const crackSeverity = this.mapCrackSeverity(issues.cracks!);
+        console.log('📝 Setting surfaceIssues.crackSeverity to:', crackSeverity);
+        this.setValue('surfaceIssues.crackSeverity' as any, crackSeverity);
       }
 
-      // Roughness
-      if (issues.roughness && issues.roughness !== 'smooth') {
-        this.setValue('surfaceIssues.roughTexture' as any, true);
-        this.setValue('surfaceRoughness' as any, this.mapRoughnessLevel(issues.roughness));
+      // Roughness - Direct value mapping (no checkbox)
+      if (issues.roughness) {
+        console.log('📝 Setting surfaceIssues.roughness to:', issues.roughness);
+        this.setValue('surfaceIssues.roughness' as any, issues.roughness.toLowerCase());
       } else {
-        this.setValue('surfaceIssues.roughTexture' as any, false);
+        // Default to smooth if not specified
+        console.log('📝 Setting surfaceIssues.roughness to default: smooth');
+        this.setValue('surfaceIssues.roughness' as any, 'smooth');
       }
 
       // Discoloration
-      if (issues.discoloration && issues.discoloration !== 'none') {
-        this.setValue('surfaceIssues.discoloration' as any, true);
-        this.setValue('surfaceIssues.discolorationSeverity' as any, this.mapDiscolorationSeverity(issues.discoloration));
-      } else {
-        this.setValue('surfaceIssues.discoloration' as any, false);
+      const hasDiscoloration = issues.discoloration && issues.discoloration !== 'none';
+      console.log('📝 Setting surfaceIssues.discoloration to:', hasDiscoloration);
+      this.setValue('surfaceIssues.discoloration' as any, hasDiscoloration);
+      if (hasDiscoloration) {
+        const discolorationSeverity = this.mapDiscolorationSeverity(issues.discoloration!);
+        console.log('📝 Setting surfaceIssues.discolorationSeverity to:', discolorationSeverity);
+        this.setValue('surfaceIssues.discolorationSeverity' as any, discolorationSeverity);
       }
 
       // Etching
-      if (issues.etching && issues.etching !== 'none') {
-        this.setValue('surfaceIssues.etching' as any, true);
-      } else {
-        this.setValue('surfaceIssues.etching' as any, false);
-      }
+      const hasEtching = issues.etching && issues.etching !== 'none';
+      console.log('📝 Setting surfaceIssues.etching to:', hasEtching);
+      this.setValue('surfaceIssues.etching' as any, hasEtching);
 
       // Scaling
-      if (issues.scaling && issues.scaling !== 'none') {
-        this.setValue('surfaceIssues.scaling' as any, true);
-      } else {
-        this.setValue('surfaceIssues.scaling' as any, false);
-      }
+      const hasScaling = issues.scaling && issues.scaling !== 'none';
+      console.log('📝 Setting surfaceIssues.scaling to:', hasScaling);
+      this.setValue('surfaceIssues.scaling' as any, hasScaling);
 
       // Chipping
-      if (issues.chipping && issues.chipping !== 'none') {
-        this.setValue('surfaceIssues.chipping' as any, true);
-      } else {
-        this.setValue('surfaceIssues.chipping' as any, false);
-      }
+      const hasChipping = issues.chipping && issues.chipping !== 'none';
+      console.log('📝 Setting surfaceIssues.chipping to:', hasChipping);
+      this.setValue('surfaceIssues.chipping' as any, hasChipping);
 
       // Hollow spots
-      if (issues.hollow_spots && issues.hollow_spots !== 'none') {
-        this.setValue('surfaceIssues.hollowSpots' as any, true);
-      } else {
-        this.setValue('surfaceIssues.hollowSpots' as any, false);
-      }
+      const hasHollowSpots = issues.hollow_spots && issues.hollow_spots !== 'none';
+      console.log('📝 Setting surfaceIssues.hollowSpots to:', hasHollowSpots);
+      this.setValue('surfaceIssues.hollowSpots' as any, hasHollowSpots);
 
       // Set hasVisibleDamage if any issue is detected
       const hasAnyDamage = Object.values(issues).some(
         issue => issue && issue !== 'none' && issue !== 'smooth'
       );
+      console.log('📝 Setting hasVisibleDamage to:', hasAnyDamage);
       this.setValue('hasVisibleDamage' as any, hasAnyDamage);
     }
 
     // Add recommendations to notes if available
     if (response.recommendations && response.recommendations.length > 0) {
       const recommendationsText = `AI Recommendations:\n${response.recommendations.join('\n')}`;
+      console.log('📝 Setting notes with recommendations:', recommendationsText);
       this.setValue('notes' as any, recommendationsText);
     }
   }
@@ -140,18 +145,6 @@ export class SurfaceAnalysisMapper<T extends Record<string, any>> {
     return 'minor';
   }
 
-  /**
-   * Maps roughness description to numeric scale
-   */
-  private mapRoughnessLevel(roughness: string): number {
-    const roughnessMap: { [key: string]: number } = {
-      'slightly rough': 3,
-      'moderately rough': 5,
-      'rough': 7,
-      'very rough': 9
-    };
-    return roughnessMap[roughness.toLowerCase()] || 5;
-  }
 
   /**
    * Maps discoloration severity

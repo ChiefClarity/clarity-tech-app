@@ -103,61 +103,43 @@ export const aiService = {
     }
   },
 
-  async analyzeEquipment(imageUri: string, equipmentType?: string): Promise<ApiResponse<EquipmentAnalysis>> {
+  async analyzeEquipment(images: string | string[], sessionId?: string, equipmentType?: string): Promise<ApiResponse<any>> {
     try {
       console.log('🤖 [AI Service] Starting equipment analysis...');
       
-      // Compress image before sending
+      // Handle both single image (for backward compatibility) and multiple images
+      const imageArray = Array.isArray(images) ? images : [images];
+      console.log(`🤖 [AI Service] Processing ${imageArray.length} equipment images`);
+      
+      // Compress all images
       const compressionOptions = getCompressionPreset('equipment');
-      const compressed = await compressImageForAI(imageUri, compressionOptions);
+      const compressedImages = await Promise.all(
+        imageArray.map(async (image, index) => {
+          console.log(`🤖 [AI Service] Compressing image ${index + 1}/${imageArray.length}`);
+          const compressed = await compressImageForAI(image, compressionOptions);
+          return compressed.base64 || image;
+        })
+      );
       
-      console.log('🤖 [AI Service] Image compressed:', {
-        originalSize: `${(compressed.originalSize! / 1024 / 1024).toFixed(2)}MB`,
-        compressedSize: `${(compressed.compressedSize! / 1024 / 1024).toFixed(2)}MB`,
-        reduction: `${compressed.compressionRatio?.toFixed(1)}%`
-      });
+      console.log('🤖 [AI Service] All images compressed, sending to API...');
       
-      // Use compressed base64 (already includes data URL prefix)
-      const imageBase64 = compressed.base64 || imageUri;
-      
-      const response = await apiClient.post<EquipmentAnalysis>('/ai/analyze-equipment', {
-        image: imageBase64,
+      const response = await apiClient.post('/ai/analyze-equipment', {
+        images: compressedImages,  // Send as array
+        sessionId,
         equipmentType,
       });
       
       console.log('🤖 [AI Service] Equipment analysis complete:', response);
-      
-      // Log which AI provider was used if available
-      if (response.data?.analyzedBy) {
-        console.log(`🤖 [AI Service] Analysis performed by: ${response.data.analyzedBy}`);
-      }
-      
       return response;
-    } catch (error: any) {
+    } catch (error) {
       console.error('🤖 [AI Service] Equipment analysis failed:', error);
       
-      // Enhanced error messages
-      if (error?.response?.status === 403) {
+      // Enhanced error handling
+      if (error?.response?.status === 413) {
         return {
           success: false,
-          error: 'AI service authentication error. Please contact support.',
-          message: 'Unable to authenticate with AI service.'
-        };
-      }
-      
-      if (error?.response?.status === 500) {
-        return {
-          success: false,
-          error: 'Server error. The system is attempting alternative analysis methods.',
-          message: error?.response?.data?.message || 'Internal server error'
-        };
-      }
-      
-      if (error?.response?.status === 503) {
-        return {
-          success: false,
-          error: 'AI services are temporarily unavailable. Please try again in a moment.',
-          message: 'All AI providers are currently at capacity.'
+          error: 'Images are too large. Please try fewer images or reduce image quality.',
+          message: 'Image size limit exceeded'
         };
       }
       
@@ -185,10 +167,14 @@ export const aiService = {
     const compressed = await compressImageForAI(imageUri, compressionOptions);
     const imageBase64 = compressed.base64 || imageUri;
     
-    return apiClient.post('/ai/analyze-pool-surface', {
+    const result = await apiClient.post('/ai/analyze-pool-surface', {
       image: imageBase64,
       sessionId,
     });
+    
+    console.log('🔍 aiService.analyzePoolSurface raw result:', result);
+    
+    return result;
   },
 
   async analyzeEnvironment(images: string[], sessionId: string): Promise<ApiResponse<any>> {

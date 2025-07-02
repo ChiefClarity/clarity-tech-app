@@ -170,28 +170,16 @@ export const EquipmentStep: React.FC = () => {
       if (FEATURES.AI_EQUIPMENT_DETECTION && photos.length > 0) {
         console.log('🤖 Starting AI equipment analysis...');
         
-        // Convert first photo to base64 if needed
-        let imageData = photos[0];
-        if (!imageData.startsWith('data:')) {
-          // If it's a blob URL, fetch and convert
-          const response = await fetch(imageData);
-          const blob = await response.blob();
-          const reader = new FileReader();
-          imageData = await new Promise((resolve) => {
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-          });
-        }
+        setCompressionProgress('Optimizing images for AI analysis...');
         
-        setCompressionProgress('Optimizing image for AI analysis...');
-        
-        // Call real AI service (compression happens inside)
-        const result = await aiService.analyzeEquipment(imageData as string);
+        // Call real AI service with ALL images
+        const result = await aiService.analyzeEquipment(photos);  // Pass all photos
 
-        if (result.success && result.analysis) {  // FIX: result.analysis NOT result.data
+        if (result.success && result.analysis) {
           const analysis = result.analysis;
           
           console.log('🎯 Equipment AI Analysis:', analysis);
+          console.log('🔍 Detected equipment count:', analysis.detectedEquipment?.length || 0);
           
           // Create mapper
           const mapper = new EquipmentAnalysisMapper(
@@ -203,24 +191,31 @@ export const EquipmentStep: React.FC = () => {
           // Map AI response to form
           await mapper.mapResponseToForm(analysis);
           
+          // Build success message based on detected equipment
+          const detectedTypes = analysis.detectedEquipment?.map(eq => eq.type) || [];
+          const equipmentList = detectedTypes.length > 0 
+            ? detectedTypes.join(', ')
+            : 'equipment';
+          
           setAnalysisComplete(true);
           setAnalysisResult({
             success: true,
             confidence: Math.round((analysis.confidence || 0.85) * 100),
-            message: `Equipment identified: ${analysis.equipmentType || 'Multiple items detected'}`,
+            message: `Detected: ${equipmentList} (${analysis.imagesAnalyzed} images analyzed)`,
           });
           
-          // Generate insights based on analysis
-          if (analysis.maintenanceNeeded && analysis.maintenanceNeeded.length > 0) {
-            const insights = [
-              ...analysis.maintenanceNeeded,
-              ...analysis.recommendations
-            ].filter(Boolean);
-            
-            if (insights.length > 0) {
-              // You can set these insights to display in an AIInsightsBox if needed
-              console.log('Equipment insights:', insights);
-            }
+          // Log specific equipment if detected
+          if (analysis.pump) {
+            console.log('🔧 Pump detected:', analysis.pump);
+          }
+          if (analysis.filter) {
+            console.log('🔧 Filter detected:', analysis.filter);
+          }
+          if (analysis.heater) {
+            console.log('🔧 Heater detected:', analysis.heater);
+          }
+          if (analysis.sanitizer) {
+            console.log('🔧 Sanitizer detected:', analysis.sanitizer);
           }
         } else {
           throw new Error('AI analysis failed - no data returned');

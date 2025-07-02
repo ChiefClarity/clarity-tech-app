@@ -28,6 +28,9 @@ import { satelliteAnalyzer } from '../../../../services/ai/satelliteAnalyzer';
 import { aiService } from '../../../../services/api/ai';
 import { POOL_ICONS } from '../../../../constants/icons';
 import { SurfaceAnalysisMapper } from '../../../../services/ai/surfaceAnalysisMapper';
+import { EnvironmentAnalysisMapper } from '../../../../services/ai/environmentAnalysisMapper';
+import { SkimmerAnalysisMapper } from '../../../../services/ai/skimmerAnalysisMapper';
+import { DeckAnalysisMapper } from '../../../../services/ai/deckAnalysisMapper';
 
 // Constants
 const MAX_SKIMMERS = 10;
@@ -288,7 +291,7 @@ const poolDetailsSchema = z.object({
     stainSeverity: z.enum(['light', 'moderate', 'heavy']).optional(),
     cracks: z.boolean().optional(),
     crackSeverity: z.enum(['minor', 'major']).optional(),
-    roughTexture: z.boolean().optional(),
+    roughness: z.enum(['smooth', 'slightly rough', 'very rough']).optional(),
     discoloration: z.boolean().optional(),
     discolorationSeverity: z.enum(['minor', 'significant']).optional(),
     etching: z.boolean().optional(),
@@ -296,7 +299,7 @@ const poolDetailsSchema = z.object({
     chipping: z.boolean().optional(),
     hollowSpots: z.boolean().optional(),
   }).optional(),
-  surfaceRoughness: z.number().min(1).max(10).optional(),
+  // surfaceRoughness: z.number().min(1).max(10).optional(), // Moved to surfaceIssues.roughness
   surfaceType: z.string().optional(),
   surfaceAge: z.string().optional(),
   lastResurfaced: z.string().optional(),
@@ -652,25 +655,28 @@ const SurfaceSection = memo(({
           title="Surface Photos"
           description="Capture pool surface from multiple angles"
           maxPhotos={Math.min(6, MAX_PHOTOS_PER_SECTION)}
+          allowBatchAnalysis={true}
           onAnalyze={async (photos) => {
             setSurfacePhotos(photos);
             
             if (photos.length > 0 && FEATURES.USE_REAL_AI) {
               try {
+                // Analyze the first photo (most representative)
+                // In future, could analyze all and aggregate results
                 const response = await aiService.analyzePoolSurface(
-                  photos[0], 
+                  photos[0],  // Still use first photo for now
                   session?.id || `session_${Date.now()}`
                 );
                 
-                if (response.success && response.data) {
-                  const analysis = response.data.analysis || response.data;
+                if (response.success && response.analysis) {
+                  const analysis = response.analysis;
                   
                   console.log('🏊 Pool Surface Analysis Result:', analysis);
                   
                   // Create SurfaceAnalysisMapper instance
                   const mapper = new SurfaceAnalysisMapper(setValue, control);
                   
-                  // Map the AI response to form fields - pass the analysis directly
+                  // Map the AI response to form fields
                   mapper.mapResponseToForm(analysis);
                   
                   // Handle field blur for material and condition
@@ -681,20 +687,23 @@ const SurfaceSection = memo(({
                     handleFieldBlur('surfaceCondition', analysis.condition.toLowerCase());
                   }
                   
-                  // Trigger field blur for all issue fields that were set
+                  // Trigger field blur for all issue fields
                   const issueFields = [
                     'surfaceIssues.stains',
                     'surfaceIssues.stainSeverity',
                     'surfaceIssues.cracks', 
                     'surfaceIssues.crackSeverity',
-                    'surfaceIssues.roughTexture',
-                    'surfaceIssues.roughnessLevel',
+                    'surfaceIssues.roughness',
                     'surfaceIssues.discoloration',
-                    'surfaceIssues.discolorationSeverity'
+                    'surfaceIssues.discolorationSeverity',
+                    'surfaceIssues.etching',
+                    'surfaceIssues.scaling',
+                    'surfaceIssues.chipping',
+                    'surfaceIssues.hollowSpots'
                   ];
                   
                   issueFields.forEach(field => {
-                    const value = control._formValues?.[field];
+                    const value = watch(field);
                     if (value !== undefined) {
                       handleFieldBlur(field, value);
                     }
@@ -705,7 +714,6 @@ const SurfaceSection = memo(({
               }
             }
           }}
-          allowBatchAnalysis={false}
         />
       </View>
       
@@ -754,6 +762,33 @@ const SurfaceSection = memo(({
               surfaceCondition === condition && styles.conditionTextActive
             ]}>
               {condition.charAt(0).toUpperCase() + condition.slice(1)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      
+      {/* Surface Roughness - Relocated below Surface Condition */}
+      <Text style={styles.fieldLabel}>Surface Roughness</Text>
+      <View style={styles.optionsGrid}>
+        {['smooth', 'slightly rough', 'very rough'].map((level) => (
+          <TouchableOpacity
+            key={level}
+            style={[
+              styles.optionButton,
+              watch('surfaceIssues.roughness') === level && styles.optionButtonActive
+            ]}
+            onPress={() => {
+              setValue('surfaceIssues.roughness', level);
+              handleFieldBlur('surfaceIssues.roughness', level);
+            }}
+          >
+            <Text style={[
+              styles.optionText,
+              watch('surfaceIssues.roughness') === level && styles.optionTextActive
+            ]}>
+              {level.split(' ').map(word => 
+                word.charAt(0).toUpperCase() + word.slice(1)
+              ).join(' ')}
             </Text>
           </TouchableOpacity>
         ))}
@@ -860,65 +895,6 @@ const SurfaceSection = memo(({
                         </Text>
                       </TouchableOpacity>
                     ))}
-                  </View>
-                )}
-              </>
-            )}
-          />
-        </View>
-
-        {/* Roughness - Following existing pattern */}
-        <View style={styles.issueRow}>
-          <Controller
-            control={control}
-            name="surfaceIssues.roughTexture"
-            render={({ field: { onChange, value } }) => (
-              <>
-                <TouchableOpacity
-                  style={styles.checkboxRow}
-                  onPress={() => {
-                    onChange(!value);
-                    handleFieldBlur('surfaceIssues.roughTexture', !value);
-                    if (value) {
-                      setValue('surfaceRoughness', undefined);
-                    }
-                  }}
-                >
-                  <View style={[styles.checkbox, value && styles.checkboxChecked]}>
-                    {value && <Ionicons name="checkmark" size={16} color="white" />}
-                  </View>
-                  <Text style={styles.checkboxLabel}>Roughness</Text>
-                </TouchableOpacity>
-                
-                {value && (
-                  <View style={styles.roughnessOptions}>
-                    <Text style={styles.scaleLabel}>Level: {watch('surfaceRoughness') || 5}/10</Text>
-                    <View style={styles.roughnessButtons}>
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((level) => (
-                        <TouchableOpacity
-                          key={level}
-                          style={[
-                            styles.roughnessButton,
-                            watch('surfaceRoughness') === level && styles.roughnessButtonActive
-                          ]}
-                          onPress={() => {
-                            setValue('surfaceRoughness', level);
-                            handleFieldBlur('surfaceRoughness', level);
-                          }}
-                        >
-                          <Text style={[
-                            styles.roughnessButtonText,
-                            watch('surfaceRoughness') === level && styles.roughnessButtonTextActive
-                          ]}>
-                            {level}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                    <View style={styles.scaleLabels}>
-                      <Text style={styles.scaleLabelText}>Smooth</Text>
-                      <Text style={styles.scaleLabelText}>Very Rough</Text>
-                    </View>
                   </View>
                 )}
               </>
@@ -1104,27 +1080,23 @@ const EnvironmentSection = memo(({
           
           if (photos.length > 0 && FEATURES.USE_REAL_AI) {
             try {
-              // Use AI service which handles multiple image compression
               const response = await aiService.analyzeEnvironment(
                 photos,
                 session?.id || `session_${Date.now()}`
               );
               
-              if (response.success && (response.data as any).analysis) {
-                const { nearbyVegetation, groundConditions } = (response.data as any).analysis;
+              if (response.success && response.analysis) {  // FIX: response.analysis NOT response.data
+                const analysis = response.analysis;
                 
-                if (nearbyVegetation?.hasTrees) {
-                  setValue('nearbyTrees', true);
-                  setValue('treeTypes', nearbyVegetation.treeTypes || '');
-                }
+                // Create mapper
+                const mapper = new EnvironmentAnalysisMapper(setValue, control);
+                mapper.mapResponseToForm(analysis);
                 
-                if (groundConditions?.type) {
-                  setValue('grassOrDirt', groundConditions.type);
-                }
-                
-                if (groundConditions?.hasSprinklers) {
-                  setValue('sprinklerSystem', true);
-                }
+                // Handle field blur for mapped fields
+                handleFieldBlur('nearbyTrees', analysis.vegetation?.treesPresent);
+                handleFieldBlur('treeTypes', analysis.vegetation?.treeTypes?.join(', '));
+                handleFieldBlur('grassOrDirt', analysis.groundConditions?.surfaceType);
+                handleFieldBlur('sprinklerSystem', analysis.groundConditions?.sprinklersPresent);
               }
             } catch (error) {
               console.error('Environment analysis failed:', error);
@@ -1171,26 +1143,29 @@ const SkimmersSection = memo(({
         onAnalyze={async (photos) => {
           if (photos.length > 0 && FEATURES.USE_REAL_AI) {
             try {
-              // Use AI service for consistent image processing
               const response = await aiService.analyzeSkimmers(
                 photos,
                 session?.id || `session_${Date.now()}`
               );
               
-              if (response.success && (response.data as any).analysis) {
-                const { detectedSkimmerCount, skimmers } = (response.data as any).analysis;
+              if (response.success && response.analysis) {  // FIX: response.analysis NOT response.data
+                const analysis = response.analysis;
                 
-                if (detectedSkimmerCount) {
-                  setSkimmerCount(detectedSkimmerCount);
-                  setValue('skimmerCount', detectedSkimmerCount);
-                  handleFieldBlur('skimmerCount', detectedSkimmerCount);
-                }
+                // Create mapper
+                const mapper = new SkimmerAnalysisMapper(setValue, control);
+                mapper.mapResponseToForm(analysis, photos.length);  // Pass photo count
                 
-                // Auto-populate skimmer conditions if detected
-                skimmers?.forEach((skimmer: any, index: number) => {
-                  if (index < MAX_SKIMMERS) {
-                    setValue(`skimmer${index + 1}BasketCondition` as any, skimmer.basketCondition || 'good');
-                    setValue(`skimmer${index + 1}LidCondition` as any, skimmer.lidCondition || 'good');
+                // Update skimmer count state
+                setSkimmerCount(photos.length);  // Use photo count
+                
+                // Handle field blur
+                handleFieldBlur('skimmerCount', photos.length);
+                
+                // Blur individual skimmer fields
+                analysis.skimmers?.forEach((_, index: number) => {
+                  if (index < 10) {
+                    handleFieldBlur(`skimmer${index + 1}BasketCondition`, analysis.skimmers[index].basketCondition);
+                    handleFieldBlur(`skimmer${index + 1}LidCondition`, analysis.skimmers[index].lidCondition);
                   }
                 });
               }
@@ -1277,24 +1252,21 @@ const DeckSection = memo(({
           
           if (photos.length > 0 && FEATURES.USE_REAL_AI) {
             try {
-              // Use AI service for proper compression and processing
               const response = await aiService.analyzeDeck(
                 photos,
                 session?.id || `session_${Date.now()}`
               );
               
-              if (response.success && (response.data as any).analysis) {
-                const { material, cleanliness } = (response.data as any).analysis;
+              if (response.success && response.analysis) {  // FIX: response.analysis NOT response.data
+                const analysis = response.analysis;
                 
-                if (material) {
-                  setValue('deckMaterial', material.toLowerCase());
-                  handleFieldBlur('deckMaterial', material.toLowerCase());
-                }
+                // Create mapper
+                const mapper = new DeckAnalysisMapper(setValue, control);
+                mapper.mapResponseToForm(analysis);
                 
-                if (cleanliness) {
-                  setValue('deckCleanliness', cleanliness.toLowerCase());
-                  handleFieldBlur('deckCleanliness', cleanliness.toLowerCase());
-                }
+                // Handle field blur
+                handleFieldBlur('deckMaterial', analysis.material);
+                handleFieldBlur('deckCleanliness', analysis.cleanliness);
               }
             } catch (error) {
               console.error('Deck analysis failed:', error);
@@ -2191,7 +2163,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.body.fontSize,
     fontWeight: '600',
     color: theme.colors.darkBlue,
-    marginBottom: theme.spacing.sm,
+    marginBottom: 8, // Reduced from theme.spacing.sm
     marginTop: theme.spacing.md,
   },
   typeButtons: {
@@ -2359,6 +2331,7 @@ const styles = StyleSheet.create({
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 4, // Reduced vertical padding for tighter spacing
     marginTop: theme.spacing.lg,  // CHANGED from no marginTop
     marginBottom: theme.spacing.md,
   },
@@ -2767,10 +2740,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.md,
-    marginTop: theme.spacing.sm,
+    paddingTop: 0, // Remove top padding
+    marginTop: 0, // Remove top margin
   },
   issueRow: {
-    marginBottom: theme.spacing.md,
+    marginBottom: 8, // Reduced from 12 to 8 for tighter spacing
   },
   severityOptions: {
     flexDirection: 'row',
