@@ -90,6 +90,7 @@ export class EquipmentAnalysisMapper {
       logger.info('📝 Mapping pump data:', response.pump, 'equipment-mapper');
       if (response.pump.brand) updates.pumpManufacturer = response.pump.brand;
       if (response.pump.model) updates.pumpModel = response.pump.model;
+      if (response.pump.serialNumber) updates.pumpSerialNumber = response.pump.serialNumber;
       if (response.pump.horsepower) updates.pumpHP = response.pump.horsepower;
       if (response.pump.age) updates.pumpAge = response.pump.age;
       
@@ -106,6 +107,7 @@ export class EquipmentAnalysisMapper {
       logger.info('📝 Mapping filter data:', response.filter, 'equipment-mapper');
       if (response.filter.brand) updates.filterManufacturer = response.filter.brand;
       if (response.filter.model) updates.filterModel = response.filter.model;
+      if (response.filter.serialNumber) updates.filterSerialNumber = response.filter.serialNumber;
       if (response.filter.type) updates.filterSize = response.filter.type;
       
       // Determine filter type
@@ -123,6 +125,7 @@ export class EquipmentAnalysisMapper {
       logger.info('📝 Mapping heater data:', response.heater, 'equipment-mapper');
       if (response.heater.brand) updates.heaterManufacturer = response.heater.brand;
       if (response.heater.model) updates.heaterModel = response.heater.model;
+      if (response.heater.serialNumber) updates.heaterSerialNumber = response.heater.serialNumber;
       if (response.heater.capacity) updates.heaterBTU = response.heater.capacity;
       
       // Determine heater type
@@ -139,6 +142,7 @@ export class EquipmentAnalysisMapper {
       logger.info('📝 Mapping sanitizer data:', response.sanitizer, 'equipment-mapper');
       if (response.sanitizer.brand) updates.sanitizerManufacturer = response.sanitizer.brand;
       if (response.sanitizer.model) updates.sanitizerModel = response.sanitizer.model;
+      if (response.sanitizer.serialNumber) updates.sanitizerSerialNumber = response.sanitizer.serialNumber;
       
       // Determine sanitizer type
       if (response.sanitizer.type === 'chlorinator' || 
@@ -160,7 +164,6 @@ export class EquipmentAnalysisMapper {
         if (response.brand) updates.pumpManufacturer = response.brand;
         if (response.model) updates.pumpModel = response.model;
         if (response.serialNumber) updates.pumpSerialNumber = response.serialNumber;
-        if (response.condition) updates.pumpCondition = response.condition;
         if (response.specifications?.horsepower) updates.pumpHP = response.specifications.horsepower;
         if (response.specifications?.voltage) updates.pumpVoltage = response.specifications.voltage;
         
@@ -178,7 +181,6 @@ export class EquipmentAnalysisMapper {
         if (response.brand) updates.filterManufacturer = response.brand;
         if (response.model) updates.filterModel = response.model;
         if (response.serialNumber) updates.filterSerialNumber = response.serialNumber;
-        if (response.condition) updates.filterCondition = response.condition;
         if (response.specifications?.filterSize) updates.filterSize = response.specifications.filterSize;
         
         // Determine filter type
@@ -199,7 +201,6 @@ export class EquipmentAnalysisMapper {
         if (response.brand) updates.heaterManufacturer = response.brand;
         if (response.model) updates.heaterModel = response.model;
         if (response.serialNumber) updates.heaterSerialNumber = response.serialNumber;
-        if (response.condition) updates.heaterCondition = response.condition;
         if (response.specifications?.capacity) updates.heaterBTU = response.specifications.capacity;
         
         // Determine heater type
@@ -217,7 +218,6 @@ export class EquipmentAnalysisMapper {
         if (response.brand) updates.sanitizerManufacturer = response.brand;
         if (response.model) updates.sanitizerModel = response.model;
         if (response.serialNumber) updates.sanitizerSerialNumber = response.serialNumber;
-        if (response.condition) updates.sanitizerCondition = response.condition;
         
         // Determine sanitizer type
         if (response.model?.toLowerCase().includes('salt')) {
@@ -252,19 +252,15 @@ export class EquipmentAnalysisMapper {
         if (eqType.includes('pump') && !updates.pumpManufacturer && eq.brand) {
           updates.pumpManufacturer = eq.brand;
           updates.pumpModel = eq.model || '';
-          if (eq.condition) updates.pumpCondition = eq.condition;
         } else if (eqType.includes('filter') && !updates.filterManufacturer && eq.brand) {
           updates.filterManufacturer = eq.brand;
           updates.filterModel = eq.model || '';
-          if (eq.condition) updates.filterCondition = eq.condition;
         } else if (eqType.includes('heater') && !updates.heaterManufacturer && eq.brand) {
           updates.heaterManufacturer = eq.brand;
           updates.heaterModel = eq.model || '';
-          if (eq.condition) updates.heaterCondition = eq.condition;
         } else if (eqType.includes('sanitizer') && !updates.sanitizerManufacturer && eq.brand) {
           updates.sanitizerManufacturer = eq.brand;
           updates.sanitizerModel = eq.model || '';
-          if (eq.condition) updates.sanitizerCondition = eq.condition;
         }
       });
     }
