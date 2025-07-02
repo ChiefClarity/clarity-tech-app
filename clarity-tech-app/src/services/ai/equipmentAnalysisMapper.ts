@@ -53,6 +53,7 @@ interface BackendEquipmentResponse {
     condition?: string;
     type?: string;
     size?: string;
+    replacementCartridge?: string;
   };
   heater?: {
     brand?: string;
@@ -94,12 +95,9 @@ export class EquipmentAnalysisMapper {
       if (response.pump.horsepower) updates.pumpHP = response.pump.horsepower;
       if (response.pump.age) updates.pumpAge = response.pump.age;
       
-      // Set pump type based on model
-      if (response.pump.model?.toLowerCase().includes('variable') || 
-          response.pump.model?.toLowerCase().includes('vs')) {
-        updates.pumpType = 'variable-speed';
-      } else if (response.pump.model?.toLowerCase().includes('two')) {
-        updates.pumpType = 'two-speed';
+      // Use type from backend directly - it's already in the correct format
+      if (response.pump.type && ['single-speed', 'two-speed', 'variable-speed'].includes(response.pump.type)) {
+        updates.pumpType = response.pump.type;
       }
     }
     
@@ -110,14 +108,13 @@ export class EquipmentAnalysisMapper {
       if (response.filter.serialNumber) updates.filterSerialNumber = response.filter.serialNumber;
       if (response.filter.type) updates.filterSize = response.filter.type;
       
-      // Determine filter type
-      if (response.filter.model?.toLowerCase().includes('cartridge') ||
-          response.filter.type?.toLowerCase().includes('cartridge')) {
-        updates.filterType = 'cartridge';
-      } else if (response.filter.model?.toLowerCase().includes('de')) {
-        updates.filterType = 'DE';
-      } else if (response.filter.model?.toLowerCase().includes('sand')) {
-        updates.filterType = 'sand';
+      // Use type from backend directly
+      if (response.filter.type && ['cartridge', 'DE', 'sand'].includes(response.filter.type)) {
+        updates.filterType = response.filter.type;
+      }
+      // Add replacement cartridge if detected
+      if (response.filter.replacementCartridge) {
+        updates.cartridgeModel = response.filter.replacementCartridge;
       }
     }
     
@@ -128,13 +125,9 @@ export class EquipmentAnalysisMapper {
       if (response.heater.serialNumber) updates.heaterSerialNumber = response.heater.serialNumber;
       if (response.heater.capacity) updates.heaterBTU = response.heater.capacity;
       
-      // Determine heater type
-      if (response.heater.model?.toLowerCase().includes('heat pump')) {
-        updates.heaterType = 'heat-pump';
-      } else if (response.heater.model?.toLowerCase().includes('gas')) {
-        updates.heaterType = 'gas';
-      } else if (response.heater.model?.toLowerCase().includes('electric')) {
-        updates.heaterType = 'electric';
+      // Use type from backend directly
+      if (response.heater.type && ['gas', 'electric', 'heat-pump'].includes(response.heater.type)) {
+        updates.heaterType = response.heater.type;
       }
     }
     
