@@ -70,6 +70,18 @@ interface BackendEquipmentResponse {
     condition?: string;
     type?: string;
   };
+  timer?: {
+    brand?: string;
+    model?: string;
+    serialNumber?: string;
+    condition?: string;
+    type?: string;
+    timerSettings?: {
+      onTime?: string;
+      offTime?: string;
+      duration?: string;
+    };
+  };
   confidence?: number;
   imagesAnalyzed?: number;
 }
@@ -143,6 +155,25 @@ export class EquipmentAnalysisMapper {
         updates.sanitizerType = 'salt';
       } else if (response.sanitizer.model?.toLowerCase().includes('chlorine')) {
         updates.sanitizerType = 'chlorine';
+      }
+    }
+    
+    if (response.timer) {
+      logger.info('📝 Mapping timer data:', response.timer, 'equipment-mapper');
+      if (response.timer.brand) updates.timerManufacturer = response.timer.brand;
+      if (response.timer.model) updates.timerModel = response.timer.model;
+      if (response.timer.serialNumber) updates.timerSerialNumber = response.timer.serialNumber;
+      
+      // Use type from backend directly
+      if (response.timer.type && ['mechanical', 'digital', 'smart'].includes(response.timer.type)) {
+        updates.timerType = response.timer.type;
+      }
+      
+      // Map nested timer settings if available
+      if (response.timer.timerSettings) {
+        if (response.timer.timerSettings.onTime) updates.timerOnTime = response.timer.timerSettings.onTime;
+        if (response.timer.timerSettings.offTime) updates.timerOffTime = response.timer.timerSettings.offTime;
+        if (response.timer.timerSettings.duration) updates.runDuration = response.timer.timerSettings.duration;
       }
     }
     
