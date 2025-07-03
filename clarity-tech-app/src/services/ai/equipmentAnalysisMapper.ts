@@ -173,8 +173,25 @@ export class EquipmentAnalysisMapper {
       
       // Map nested timer settings if available
       if (response.timer.timerSettings) {
-        if (response.timer.timerSettings.onTime) updates.timerOnTime = response.timer.timerSettings.onTime;
-        if (response.timer.timerSettings.offTime) updates.timerOffTime = response.timer.timerSettings.offTime;
+        // Parse and map timer settings to form fields
+        if (response.timer.timerSettings.onTime) {
+          const startTime = this.parseTimeString(response.timer.timerSettings.onTime);
+          if (startTime) {
+            updates.timerStartHour = startTime.hour;
+            updates.timerStartMinute = startTime.minute;
+            updates.timerStartPeriod = startTime.period;
+          }
+        }
+
+        if (response.timer.timerSettings.offTime) {
+          const endTime = this.parseTimeString(response.timer.timerSettings.offTime);
+          if (endTime) {
+            updates.timerEndHour = endTime.hour;
+            updates.timerEndMinute = endTime.minute;
+            updates.timerEndPeriod = endTime.period;
+          }
+        }
+        
         if (response.timer.timerSettings.duration) updates.runDuration = response.timer.timerSettings.duration;
       }
     }
@@ -300,5 +317,19 @@ export class EquipmentAnalysisMapper {
       response.detectedEquipment?.map(eq => eq.type).join(', ') || 'none',
       'equipment-mapper'
     );
+  }
+  
+  private parseTimeString(timeStr: string): { hour: string; minute: string; period: string } | null {
+    if (!timeStr) return null;
+    
+    // Match various time formats: "8:00 AM", "08:00 AM", "8 AM", etc.
+    const match = timeStr.match(/(\d{1,2}):?(\d{0,2})\s*(AM|PM)/i);
+    if (!match) return null;
+    
+    return {
+      hour: match[1],
+      minute: match[2] || '00',
+      period: match[3].toUpperCase()
+    };
   }
 }
