@@ -164,9 +164,11 @@ export class EquipmentAnalysisMapper {
       if (response.timer.model) updates.timerModel = response.timer.model;
       if (response.timer.serialNumber) updates.timerSerialNumber = response.timer.serialNumber;
       
-      // Use type from backend directly
+      // Use type from backend directly - following existing pattern
       if (response.timer.type && ['mechanical', 'digital', 'smart'].includes(response.timer.type)) {
         updates.timerType = response.timer.type;
+      } else if (response.timer.brand === 'Generic' || response.timer.model?.includes('Mechanical')) {
+        updates.timerType = 'mechanical'; // Same pattern as pump defaulting to 'single-speed'
       }
       
       // Map nested timer settings if available
