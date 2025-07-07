@@ -826,25 +826,30 @@ const EnvironmentSection = memo(({
 
               // Fetch weather and pollen data
               let weatherData = null;
-              if (session?.customerInfo?.address) {
+              if (session?.customerInfo?.address && session?.customerInfo?.city && session?.customerInfo?.state) {
                 try {
-                  console.log('🌤️ Fetching weather data for:', session.customerInfo.address);
+                  const weatherAddress = `${session.customerInfo.address}, ${session.customerInfo.city}, ${session.customerInfo.state} ${session.customerInfo.zipCode || ''}`.trim();
+                  console.log('🌤️ Fetching weather/pollen data for:', weatherAddress);
+                  
                   const weatherResponse = await apiClient.post('/ai/analyze-weather-pollen', {
-                    address: session.customerInfo.address,
+                    address: weatherAddress,
                   });
                   
-                  if (weatherResponse.success) {
+                  if (weatherResponse.success && weatherResponse.data) {
                     weatherData = weatherResponse.data;
-                    console.log('🌤️ Weather data received:', {
+                    console.log('🌤️ Weather/pollen data received:', {
                       rainfall: weatherData.avgRainfall,
-                      pollen: weatherData.pollenData,
+                      windPatterns: weatherData.windPatterns,
+                      pollenLevel: weatherData.pollenData?.currentLevel,
+                      pollenTypes: weatherData.pollenData?.mainTypes,
                     });
                   }
                 } catch (error) {
-                  console.error('Weather data fetch failed:', error);
+                  console.error('⚠️ Weather/pollen data fetch failed:', error);
                 }
               }
 
+              // Now analyze environment with ground photos
               const response = await aiService.analyzeEnvironment(
                 photos,
                 session?.id || `session_${Date.now()}`
@@ -891,16 +896,32 @@ const EnvironmentSection = memo(({
                 handleFieldBlur('grassOrDirt', analysis.groundConditions?.surfaceType);
                 handleFieldBlur('sprinklerSystem', analysis.groundConditions?.sprinklersPresent);
                 
-                // Store comprehensive environment analysis
+                // Store comprehensive environment analysis combining all data sources
                 if (session?.customerInfo?.id) {
                   const comprehensiveAnalysis = {
                     timestamp: new Date().toISOString(),
                     imageUri: photos[0],
                     groundAnalysis: analysis,
-                    satelliteData: satelliteData,
-                    weatherData: weatherData,
-                    combinedTreeCount: combinedTreeCount,
-                    combinedTreeTypes: combinedTreeTypes,
+                    satelliteData: satelliteData?.analysis || null,
+                    weatherData: weatherData || null,
+                    combinedInsights: {
+                      treeCount: combinedTreeCount,
+                      treeTypes: combinedTreeTypes,
+                      maintenanceChallenges: {
+                        fromVegetation: analysis.vegetation?.treesPresent || false,
+                        fromStructures: analysis.structures?.screenEnclosure || false,
+                        fromWeather: weatherData ? {
+                          highRainfall: (weatherData.avgRainfall || 0) > 60,
+                          strongWinds: weatherData.windPatterns?.toLowerCase().includes('strong') || false,
+                          highPollen: ['high', 'very high'].includes(weatherData.pollenData?.currentLevel || ''),
+                        } : {},
+                      },
+                      environmentalRiskScore: calculateEnvironmentalRisk(
+                        analysis,
+                        satelliteData?.analysis,
+                        weatherData
+                      ),
+                    },
                   };
                   
                   await aiAnalysisStorage.saveAnalysis(
@@ -914,7 +935,28 @@ const EnvironmentSection = memo(({
                     hasSatelliteData: !!satelliteData,
                     hasWeatherData: !!weatherData,
                     treeCount: combinedTreeCount,
+                    rainfall: weatherData?.avgRainfall,
+                    pollenLevel: weatherData?.pollenData?.currentLevel,
                   });
+                }
+
+                // Helper function to calculate risk score
+                function calculateEnvironmentalRisk(ground: any, satellite: any, weather: any): number {
+                  let riskScore = 0;
+                  
+                  // Tree proximity risk
+                  if (ground?.vegetation?.treeProximity === 'very_close') riskScore += 30;
+                  else if (ground?.vegetation?.treeProximity === 'close') riskScore += 20;
+                  
+                  // Weather risks
+                  if (weather?.avgRainfall > 60) riskScore += 15;
+                  if (weather?.windPatterns?.toLowerCase().includes('strong')) riskScore += 10;
+                  if (['high', 'very high'].includes(weather?.pollenData?.currentLevel)) riskScore += 10;
+                  
+                  // Environmental challenges
+                  if (ground?.maintenanceChallenges?.includes('Heavy leaf debris')) riskScore += 15;
+                  
+                  return Math.min(riskScore, 100);
                 }
               }
             } catch (error) {
@@ -1669,7 +1711,7 @@ export const PoolDetailsStep: React.FC = () => {
 
       setIsAnalyzingSatellite(true);
       setSatelliteAnalysisResult(null);
-      const fullAddress = `${customerInfo.address}, ${customerInfo.city}, ${customerInfo.state} ${customerInfo.zip || ''}`.trim();
+      const fullAddress = `${customerInfo.address}, ${customerInfo.city}, ${customerInfo.state} ${customerInfo.zipCode || ''}`.trim();
       
       console.log('📡 [PoolDetailsStep] Calling satelliteAnalyzer.analyzePoolFromAddress...');
       const result = await satelliteAnalyzer.analyzePoolFromAddress(
