@@ -31,6 +31,7 @@ import { SurfaceAnalysisMapper } from '../../../../services/ai/surfaceAnalysisMa
 import { EnvironmentAnalysisMapper } from '../../../../services/ai/environmentAnalysisMapper';
 import { SkimmerAnalysisMapper } from '../../../../services/ai/skimmerAnalysisMapper';
 import { DeckAnalysisMapper } from '../../../../services/ai/deckAnalysisMapper';
+import { aiAnalysisStorage } from '../../../../services/aiAnalysis/storage';
 
 // Constants
 const MAX_SKIMMERS = 10;
@@ -1080,6 +1081,19 @@ const EnvironmentSection = memo(({
           
           if (photos.length > 0 && FEATURES.USE_REAL_AI) {
             try {
+              // Get existing satellite data
+              let satelliteData = null;
+              if (session?.customerInfo?.id) {
+                try {
+                  satelliteData = await aiAnalysisStorage.getLatestAnalysis(
+                    session.customerInfo.id,
+                    'satellite'
+                  );
+                } catch (error) {
+                  console.log('No satellite data available:', error);
+                }
+              }
+
               const response = await aiService.analyzeEnvironment(
                 photos,
                 session?.id || `session_${Date.now()}`
@@ -1088,13 +1102,41 @@ const EnvironmentSection = memo(({
               if (response.success && response.analysis) {  // FIX: response.analysis NOT response.data
                 const analysis = response.analysis;
                 
-                // Create mapper
+                // Combine satellite and ground analysis
+                const combinedTreeCount = Math.max(
+                  analysis.vegetation?.treeCount || 0,
+                  satelliteData?.propertyFeatures?.treeCount || 0
+                );
+                
+                const combinedTreeTypes = [
+                  ...(analysis.vegetation?.treeTypes || []),
+                  ...(satelliteData?.propertyFeatures?.treeTypes || [])
+                ].filter((v, i, a) => a.indexOf(v) === i); // Remove duplicates
+
+                // Log combined data
+                console.log('🌳 Combined Environment Analysis:', {
+                  groundTreeCount: analysis.vegetation?.treeCount,
+                  satelliteTreeCount: satelliteData?.propertyFeatures?.treeCount,
+                  combinedTreeCount,
+                  combinedTreeTypes
+                });
+                
+                // Create mapper with enhanced data
+                const enhancedAnalysis = {
+                  ...analysis,
+                  vegetation: {
+                    ...analysis.vegetation,
+                    treeCount: combinedTreeCount,
+                    treeTypes: combinedTreeTypes
+                  }
+                };
+                
                 const mapper = new EnvironmentAnalysisMapper(setValue, control);
-                mapper.mapResponseToForm(analysis);
+                mapper.mapResponseToForm(enhancedAnalysis);
                 
                 // Handle field blur for mapped fields
-                handleFieldBlur('nearbyTrees', analysis.vegetation?.treesPresent);
-                handleFieldBlur('treeTypes', analysis.vegetation?.treeTypes?.join(', '));
+                handleFieldBlur('nearbyTrees', enhancedAnalysis.vegetation?.treesPresent);
+                handleFieldBlur('treeTypes', enhancedAnalysis.vegetation?.treeTypes?.join(', '));
                 handleFieldBlur('grassOrDirt', analysis.groundConditions?.surfaceType);
                 handleFieldBlur('sprinklerSystem', analysis.groundConditions?.sprinklersPresent);
               }
@@ -1845,8 +1887,13 @@ export const PoolDetailsStep: React.FC = () => {
         // ADD THIS BLOCK:
         if (poolType && ['inground', 'above_ground'].includes(poolType)) {
           try {
-            setValue('poolType', poolType === 'above_ground' ? 'aboveGround' : 'inground');
-            console.log('✅ AI detected pool type:', poolType);
+            const formValue = poolType === 'above_ground' ? 'aboveGround' : 'inground';
+            setValue('poolType', formValue, { shouldValidate: true, shouldDirty: true });
+            
+            // Force the watch to update
+            handleFieldBlur('poolType', formValue);
+            
+            console.log('✅ AI detected pool type:', poolType, '-> Form value:', formValue);
           } catch (error) {
             console.warn('Could not set pool type from AI:', error);
           }
