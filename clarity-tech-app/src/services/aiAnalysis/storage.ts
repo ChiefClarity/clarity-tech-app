@@ -99,7 +99,7 @@ export interface CustomerAIAnalysis {
 }
 
 class AIAnalysisStorage {
-  private readonly STORAGE_KEY = 'ai_analysis_data';
+  private readonly STORAGE_KEY = STORAGE_KEYS.AI_ANALYSIS_DATA;
   private readonly VERSION = '1.0.0';
 
   async saveAnalysis(customerId: string, type: 'surface' | 'environment' | 'satellite' | 'voice', data: any): Promise<void> {

@@ -28,6 +28,9 @@ export const STORAGE_KEYS = {
   API_CACHE: '@clarity_api_cache',
   IMAGE_CACHE: '@clarity_image_cache',
   
+  // AI Analysis Storage
+  AI_ANALYSIS_DATA: '@clarity_ai_analysis_data',
+  
   // Legacy keys (for migration)
   LEGACY_AUTH_TOKEN: '@clarity_auth_token',
   LEGACY_TECHNICIAN_ID: 'technicianId',
