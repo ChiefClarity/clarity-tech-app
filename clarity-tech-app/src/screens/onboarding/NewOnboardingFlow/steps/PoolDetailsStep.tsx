@@ -876,87 +876,114 @@ const EnvironmentSection = memo(({
                   combinedTreeCount,
                   combinedTreeTypes
                 });
-                
-                // Create mapper with enhanced data
-                const enhancedAnalysis = {
+
+                // Create comprehensive analysis with all data sources
+                const comprehensiveAnalysis = {
                   ...analysis,
                   vegetation: {
                     ...analysis.vegetation,
                     treeCount: combinedTreeCount,
-                    treeTypes: combinedTreeTypes
-                  }
+                    treeTypes: combinedTreeTypes,
+                  },
+                  weatherIntegration: weatherData ? {
+                    rainfall: weatherData.avgRainfall,
+                    windPatterns: weatherData.windPatterns,
+                    seasonalFactors: weatherData.seasonalFactors,
+                    pollenData: weatherData.pollenData,
+                  } : null,
+                  satelliteIntegration: satelliteData ? {
+                    propertySize: satelliteData.analysis?.propertyFeatures?.propertySize,
+                    landscapeType: satelliteData.analysis?.propertyFeatures?.landscapeType,
+                    treeProximity: satelliteData.analysis?.propertyFeatures?.treeProximity,
+                  } : null,
                 };
-                
+
+                // Visual debug panel - shows data source integration
+                console.log('🔍 COMPREHENSIVE ENVIRONMENT ANALYSIS VISUALIZATION:');
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                console.log('📸 GROUND ANALYSIS:');
+                console.log('  • Trees detected:', analysis.vegetation?.treesPresent ? '✅' : '❌');
+                console.log('  • Tree count:', analysis.vegetation?.treeCount || 0);
+                console.log('  • Tree types:', analysis.vegetation?.treeTypes?.join(', ') || 'none');
+                console.log('  • Surface type:', analysis.groundConditions?.surfaceType || 'unknown');
+                console.log('  • Sprinklers:', analysis.groundConditions?.sprinklersPresent ? '✅' : '❌');
+                console.log('');
+                console.log('🛰️ SATELLITE ANALYSIS:');
+                console.log('  • Tree count:', satelliteData?.analysis?.propertyFeatures?.treeCount || 'N/A');
+                console.log('  • Tree proximity:', satelliteData?.analysis?.propertyFeatures?.treeProximity || 'N/A');
+                console.log('  • Property size:', satelliteData?.analysis?.propertyFeatures?.propertySize || 'N/A');
+                console.log('');
+                console.log('🌤️ WEATHER/POLLEN DATA:');
+                console.log('  • Annual rainfall:', weatherData?.avgRainfall ? `${weatherData.avgRainfall} inches` : 'N/A');
+                console.log('  • Wind patterns:', weatherData?.windPatterns || 'N/A');
+                console.log('  • Pollen level:', weatherData?.pollenData?.currentLevel || 'N/A');
+                console.log('  • Main pollen types:', weatherData?.pollenData?.mainTypes?.join(', ') || 'N/A');
+                console.log('');
+                console.log('🎯 COMBINED INSIGHTS:');
+                console.log('  • Total tree count:', combinedTreeCount);
+                console.log('  • All tree types:', combinedTreeTypes.join(', ') || 'none');
+                console.log('  • Maintenance risk score:', calculateMaintenanceRisk(comprehensiveAnalysis));
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+                // Calculate maintenance risk based on all factors
+                function calculateMaintenanceRisk(data: any): string {
+                  let riskScore = 0;
+                  
+                  // Tree factors
+                  if (data.vegetation?.treesPresent) riskScore += 20;
+                  if (data.vegetation?.treeCount > 5) riskScore += 15;
+                  if (data.vegetation?.proximityToPool === 'very_close') riskScore += 25;
+                  
+                  // Weather factors
+                  if (data.weatherIntegration?.rainfall > 60) riskScore += 20;
+                  if (data.weatherIntegration?.windPatterns?.includes('strong')) riskScore += 15;
+                  if (['high', 'very high'].includes(data.weatherIntegration?.pollenData?.currentLevel)) riskScore += 10;
+                  
+                  // Environmental challenges
+                  if (data.maintenanceChallenges?.length > 2) riskScore += 15;
+                  
+                  if (riskScore >= 70) return `HIGH (${riskScore}/100) ⚠️`;
+                  if (riskScore >= 40) return `MODERATE (${riskScore}/100) ⚡`;
+                  return `LOW (${riskScore}/100) ✅`;
+                }
+
+                // Map to form with enhanced data
                 const mapper = new EnvironmentAnalysisMapper(setValue, control);
-                mapper.mapResponseToForm(enhancedAnalysis);
-                
+                mapper.mapResponseToForm(comprehensiveAnalysis);
+
                 // Handle field blur for mapped fields
-                handleFieldBlur('nearbyTrees', enhancedAnalysis.vegetation?.treesPresent);
-                handleFieldBlur('treeTypes', enhancedAnalysis.vegetation?.treeTypes?.join(', '));
+                handleFieldBlur('nearbyTrees', comprehensiveAnalysis.vegetation?.treesPresent);
+                handleFieldBlur('treeTypes', comprehensiveAnalysis.vegetation?.treeTypes?.join(', '));
                 handleFieldBlur('grassOrDirt', analysis.groundConditions?.surfaceType);
                 handleFieldBlur('sprinklerSystem', analysis.groundConditions?.sprinklersPresent);
-                
-                // Store comprehensive environment analysis combining all data sources
+
+                // Store comprehensive analysis with all data sources
                 if (session?.customerInfo?.id) {
-                  const comprehensiveAnalysis = {
+                  const storageData = {
                     timestamp: new Date().toISOString(),
-                    imageUri: photos[0],
+                    imageUris: photos,
                     groundAnalysis: analysis,
                     satelliteData: satelliteData?.analysis || null,
                     weatherData: weatherData || null,
                     combinedInsights: {
                       treeCount: combinedTreeCount,
                       treeTypes: combinedTreeTypes,
-                      maintenanceChallenges: {
-                        fromVegetation: analysis.vegetation?.treesPresent || false,
-                        fromStructures: analysis.structures?.screenEnclosure || false,
-                        fromWeather: weatherData ? {
-                          highRainfall: (weatherData.avgRainfall || 0) > 60,
-                          strongWinds: weatherData.windPatterns?.toLowerCase().includes('strong') || false,
-                          highPollen: ['high', 'very high'].includes(weatherData.pollenData?.currentLevel || ''),
-                        } : {},
+                      maintenanceRisk: calculateMaintenanceRisk(comprehensiveAnalysis),
+                      dataSources: {
+                        hasGroundImages: true,
+                        hasSatelliteData: !!satelliteData,
+                        hasWeatherData: !!weatherData,
                       },
-                      environmentalRiskScore: calculateEnvironmentalRisk(
-                        analysis,
-                        satelliteData?.analysis,
-                        weatherData
-                      ),
                     },
                   };
                   
                   await aiAnalysisStorage.saveAnalysis(
                     session.customerInfo.id,
                     'environment',
-                    comprehensiveAnalysis
+                    storageData
                   );
                   
-                  console.log('🌍 Comprehensive Environment Analysis Stored:', {
-                    hasGroundData: !!analysis,
-                    hasSatelliteData: !!satelliteData,
-                    hasWeatherData: !!weatherData,
-                    treeCount: combinedTreeCount,
-                    rainfall: weatherData?.avgRainfall,
-                    pollenLevel: weatherData?.pollenData?.currentLevel,
-                  });
-                }
-
-                // Helper function to calculate risk score
-                function calculateEnvironmentalRisk(ground: any, satellite: any, weather: any): number {
-                  let riskScore = 0;
-                  
-                  // Tree proximity risk
-                  if (ground?.vegetation?.treeProximity === 'very_close') riskScore += 30;
-                  else if (ground?.vegetation?.treeProximity === 'close') riskScore += 20;
-                  
-                  // Weather risks
-                  if (weather?.avgRainfall > 60) riskScore += 15;
-                  if (weather?.windPatterns?.toLowerCase().includes('strong')) riskScore += 10;
-                  if (['high', 'very high'].includes(weather?.pollenData?.currentLevel)) riskScore += 10;
-                  
-                  // Environmental challenges
-                  if (ground?.maintenanceChallenges?.includes('Heavy leaf debris')) riskScore += 15;
-                  
-                  return Math.min(riskScore, 100);
+                  console.log('💾 Comprehensive Environment Analysis Stored Successfully');
                 }
               }
             } catch (error) {
