@@ -849,10 +849,17 @@ const EnvironmentSection = memo(({
                 }
               }
 
+              // Prepare context for AI
+              const aiContext = {
+                satelliteData: satelliteData?.analysis || null,
+                weatherData: weatherData || null,
+              };
+
               // Now analyze environment with ground photos
               const response = await aiService.analyzeEnvironment(
                 photos,
-                session?.id || `session_${Date.now()}`
+                session?.id || `session_${Date.now()}`,
+                aiContext
               );
               
               if (response.success && response.analysis) {  // FIX: response.analysis NOT response.data

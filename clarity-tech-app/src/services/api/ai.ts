@@ -177,7 +177,12 @@ export const aiService = {
     return result;
   },
 
-  async analyzeEnvironment(images: string[], sessionId: string): Promise<ApiResponse<any>> {
+  async analyzeEnvironment(images: string[], sessionId: string, context?: any): Promise<ApiResponse<any>> {
+    logger.info('🌳 [AI Service] Analyzing environment...', { 
+      photoCount: images.length,
+      hasContext: !!context 
+    });
+    
     // Compress multiple images
     const compressionOptions = getCompressionPreset('pool');
     const compressedImages = await Promise.all(
@@ -190,6 +195,7 @@ export const aiService = {
     return apiClient.post('/ai/analyze-environment', {
       images: compressedImages,
       sessionId,
+      context, // Add context to request
     });
   },
 
