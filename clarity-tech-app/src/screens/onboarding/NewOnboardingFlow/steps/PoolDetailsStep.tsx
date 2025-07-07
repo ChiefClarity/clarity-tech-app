@@ -768,289 +768,20 @@ const SurfaceSection = memo(({
         ))}
       </View>
       
-      {/* Surface Roughness - Relocated below Surface Condition */}
-      <Text style={styles.fieldLabel}>Surface Roughness</Text>
-      <View style={styles.optionsGrid}>
-        {['smooth', 'slightly rough', 'very rough'].map((level) => (
-          <TouchableOpacity
-            key={level}
-            style={[
-              styles.optionButton,
-              watch('surfaceIssues.roughness') === level && styles.optionButtonActive
-            ]}
-            onPress={() => {
-              setValue('surfaceIssues.roughness', level);
-              handleFieldBlur('surfaceIssues.roughness', level);
-            }}
+      {/* Surface Analysis - AI Only */}
+      {surfacePhotos.length > 0 && (
+        <View style={styles.aiAnalysisStatus}>
+          <LinearGradient
+            colors={[theme.colors.aiPink + '20', theme.colors.aiBlue + '20']}
+            style={styles.aiStatusGradient}
           >
-            <Text style={[
-              styles.optionText,
-              watch('surfaceIssues.roughness') === level && styles.optionTextActive
-            ]}>
-              {level.split(' ').map(word => 
-                word.charAt(0).toUpperCase() + word.slice(1)
-              ).join(' ')}
+            <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
+            <Text style={styles.aiStatusText}>
+              AI Surface Analysis Complete - Details saved for report
             </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      
-      {/* NEW: Surface Issues Section */}
-      <Text style={styles.fieldLabel}>Surface Issues</Text>
-      <View style={styles.issuesContainer}>
-        
-        {/* Stains - Following existing pattern */}
-        <View style={styles.issueRow}>
-          <Controller
-            control={control}
-            name="surfaceIssues.stains"
-            render={({ field: { onChange, value } }) => (
-              <>
-                <TouchableOpacity
-                  style={styles.checkboxRow}
-                  onPress={() => {
-                    onChange(!value);
-                    handleFieldBlur('surfaceIssues.stains', !value);
-                    if (value) {
-                      setValue('surfaceIssues.stainSeverity', undefined);
-                    }
-                  }}
-                >
-                  <View style={[styles.checkbox, value && styles.checkboxChecked]}>
-                    {value && <Ionicons name="checkmark" size={16} color="white" />}
-                  </View>
-                  <Text style={styles.checkboxLabel}>Stains</Text>
-                </TouchableOpacity>
-                
-                {value && (
-                  <View style={styles.severityOptions}>
-                    {['light', 'moderate', 'heavy'].map((severity) => (
-                      <TouchableOpacity
-                        key={severity}
-                        style={[
-                          styles.severityButton,
-                          watch('surfaceIssues.stainSeverity') === severity && styles.severityButtonActive
-                        ]}
-                        onPress={() => {
-                          setValue('surfaceIssues.stainSeverity', severity);
-                          handleFieldBlur('surfaceIssues.stainSeverity', severity);
-                        }}
-                      >
-                        <Text style={[
-                          styles.severityText,
-                          watch('surfaceIssues.stainSeverity') === severity && styles.severityTextActive
-                        ]}>
-                          {severity}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </>
-            )}
-          />
+          </LinearGradient>
         </View>
-
-        {/* Cracks - Following existing pattern */}
-        <View style={styles.issueRow}>
-          <Controller
-            control={control}
-            name="surfaceIssues.cracks"
-            render={({ field: { onChange, value } }) => (
-              <>
-                <TouchableOpacity
-                  style={styles.checkboxRow}
-                  onPress={() => {
-                    onChange(!value);
-                    handleFieldBlur('surfaceIssues.cracks', !value);
-                    if (value) {
-                      setValue('surfaceIssues.crackSeverity', undefined);
-                    }
-                  }}
-                >
-                  <View style={[styles.checkbox, value && styles.checkboxChecked]}>
-                    {value && <Ionicons name="checkmark" size={16} color="white" />}
-                  </View>
-                  <Text style={styles.checkboxLabel}>Cracks</Text>
-                </TouchableOpacity>
-                
-                {value && (
-                  <View style={styles.severityOptions}>
-                    {['minor', 'major'].map((severity) => (
-                      <TouchableOpacity
-                        key={severity}
-                        style={[
-                          styles.severityButton,
-                          watch('surfaceIssues.crackSeverity') === severity && styles.severityButtonActive
-                        ]}
-                        onPress={() => {
-                          setValue('surfaceIssues.crackSeverity', severity);
-                          handleFieldBlur('surfaceIssues.crackSeverity', severity);
-                        }}
-                      >
-                        <Text style={[
-                          styles.severityText,
-                          watch('surfaceIssues.crackSeverity') === severity && styles.severityTextActive
-                        ]}>
-                          {severity}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </>
-            )}
-          />
-        </View>
-
-        {/* Discoloration - Following existing pattern */}
-        <View style={styles.issueRow}>
-          <Controller
-            control={control}
-            name="surfaceIssues.discoloration"
-            render={({ field: { onChange, value } }) => (
-              <>
-                <TouchableOpacity
-                  style={styles.checkboxRow}
-                  onPress={() => {
-                    onChange(!value);
-                    handleFieldBlur('surfaceIssues.discoloration', !value);
-                    if (value) {
-                      setValue('surfaceIssues.discolorationSeverity', undefined);
-                    }
-                  }}
-                >
-                  <View style={[styles.checkbox, value && styles.checkboxChecked]}>
-                    {value && <Ionicons name="checkmark" size={16} color="white" />}
-                  </View>
-                  <Text style={styles.checkboxLabel}>Discoloration</Text>
-                </TouchableOpacity>
-                
-                {value && (
-                  <View style={styles.severityOptions}>
-                    {['minor', 'significant'].map((severity) => (
-                      <TouchableOpacity
-                        key={severity}
-                        style={[
-                          styles.severityButton,
-                          watch('surfaceIssues.discolorationSeverity') === severity && styles.severityButtonActive
-                        ]}
-                        onPress={() => {
-                          setValue('surfaceIssues.discolorationSeverity', severity);
-                          handleFieldBlur('surfaceIssues.discolorationSeverity', severity);
-                        }}
-                      >
-                        <Text style={[
-                          styles.severityText,
-                          watch('surfaceIssues.discolorationSeverity') === severity && styles.severityTextActive
-                        ]}>
-                          {severity}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </>
-            )}
-          />
-        </View>
-
-        {/* Etching - Following existing pattern */}
-        <View style={styles.issueRow}>
-          <Controller
-            control={control}
-            name="surfaceIssues.etching"
-            render={({ field: { onChange, value } }) => (
-              <>
-                <TouchableOpacity
-                  style={styles.checkboxRow}
-                  onPress={() => {
-                    onChange(!value);
-                    handleFieldBlur('surfaceIssues.etching', !value);
-                  }}
-                >
-                  <View style={[styles.checkbox, value && styles.checkboxChecked]}>
-                    {value && <Ionicons name="checkmark" size={16} color="white" />}
-                  </View>
-                  <Text style={styles.checkboxLabel}>Etching</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          />
-        </View>
-
-        {/* Scaling - Following existing pattern */}
-        <View style={styles.issueRow}>
-          <Controller
-            control={control}
-            name="surfaceIssues.scaling"
-            render={({ field: { onChange, value } }) => (
-              <>
-                <TouchableOpacity
-                  style={styles.checkboxRow}
-                  onPress={() => {
-                    onChange(!value);
-                    handleFieldBlur('surfaceIssues.scaling', !value);
-                  }}
-                >
-                  <View style={[styles.checkbox, value && styles.checkboxChecked]}>
-                    {value && <Ionicons name="checkmark" size={16} color="white" />}
-                  </View>
-                  <Text style={styles.checkboxLabel}>Scaling</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          />
-        </View>
-
-        {/* Chipping - Following existing pattern */}
-        <View style={styles.issueRow}>
-          <Controller
-            control={control}
-            name="surfaceIssues.chipping"
-            render={({ field: { onChange, value } }) => (
-              <>
-                <TouchableOpacity
-                  style={styles.checkboxRow}
-                  onPress={() => {
-                    onChange(!value);
-                    handleFieldBlur('surfaceIssues.chipping', !value);
-                  }}
-                >
-                  <View style={[styles.checkbox, value && styles.checkboxChecked]}>
-                    {value && <Ionicons name="checkmark" size={16} color="white" />}
-                  </View>
-                  <Text style={styles.checkboxLabel}>Chipping</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          />
-        </View>
-
-        {/* Hollow Spots - Following existing pattern */}
-        <View style={styles.issueRow}>
-          <Controller
-            control={control}
-            name="surfaceIssues.hollowSpots"
-            render={({ field: { onChange, value } }) => (
-              <>
-                <TouchableOpacity
-                  style={styles.checkboxRow}
-                  onPress={() => {
-                    onChange(!value);
-                    handleFieldBlur('surfaceIssues.hollowSpots', !value);
-                  }}
-                >
-                  <View style={[styles.checkbox, value && styles.checkboxChecked]}>
-                    {value && <Ionicons name="checkmark" size={16} color="white" />}
-                  </View>
-                  <Text style={styles.checkboxLabel}>Hollow Spots</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          />
-        </View>
-      </View>
+      )}
     </View>
   );
 });
@@ -2569,6 +2300,22 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.body.fontSize,
     color: theme.colors.gray,
     lineHeight: 22,
+  },
+  aiAnalysisStatus: {
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
+  },
+  aiStatusGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+  },
+  aiStatusText: {
+    marginLeft: theme.spacing.sm,
+    fontSize: theme.typography.body.fontSize,
+    color: theme.colors.text.primary,
+    fontWeight: '500',
   },
   inputContainer: {
     flexDirection: 'row',
