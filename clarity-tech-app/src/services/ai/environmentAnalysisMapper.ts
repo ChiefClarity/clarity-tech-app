@@ -21,6 +21,14 @@ interface BackendEnvironmentResponse {
     windExposure?: string;
     privacyLevel?: string;
   };
+  structures?: {
+    screenEnclosure?: boolean;
+    fencing?: boolean;
+    pergola?: boolean;
+    enclosureCondition?: string;
+    poolOrientation?: string;
+    shadeStructures?: string[];
+  };
   maintenanceChallenges?: string[];
   recommendations?: string[];
 }
@@ -69,6 +77,29 @@ export class EnvironmentAnalysisMapper<T extends Record<string, any>> {
       if (ground.sprinklersPresent !== undefined) {
         this.setValue('sprinklerSystem' as any, ground.sprinklersPresent);
         logger.info(`📝 Set sprinklerSystem to: ${ground.sprinklersPresent}`, 'environment-mapper');
+      }
+    }
+
+    // Map structures
+    if (response.structures) {
+      const structures = response.structures;
+      
+      // Screen enclosure
+      if (structures.screenEnclosure !== undefined) {
+        this.setValue('screenEnclosure' as any, structures.screenEnclosure);
+        logger.info(`📝 Set screenEnclosure to: ${structures.screenEnclosure}`, 'environment-mapper');
+      }
+      
+      // Pool orientation
+      if (structures.poolOrientation && structures.poolOrientation !== 'unknown') {
+        this.setValue('poolOrientation' as any, structures.poolOrientation);
+        logger.info(`📝 Set poolOrientation to: ${structures.poolOrientation}`, 'environment-mapper');
+      }
+      
+      // Enclosure condition
+      if (structures.enclosureCondition && structures.enclosureCondition !== 'none') {
+        this.setValue('enclosureCondition' as any, structures.enclosureCondition);
+        logger.info(`📝 Set enclosureCondition to: ${structures.enclosureCondition}`, 'environment-mapper');
       }
     }
 
