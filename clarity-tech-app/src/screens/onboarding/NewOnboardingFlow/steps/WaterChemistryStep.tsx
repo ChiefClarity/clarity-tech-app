@@ -9,11 +9,9 @@ import { debounce } from 'lodash';
 
 import { EnhancedFloatingInput } from '../../../../components/ui/EnhancedFloatingInput';
 import { AIPhotoAnalyzer } from '../../../../components/ui/AIPhotoAnalyzer';
-import { AIInsightsBox } from '../../../../components/common/AIInsightsBox';
 import { useOnboarding } from '../../../../contexts/OnboardingContext';
 import { theme } from '../../../../styles/theme';
 import { webAlert } from '../utils/webAlert';
-import { AIInsightsService } from '../../../../services/ai/aiInsights';
 import { aiService } from '../../../../services/api/ai';
 import { FEATURES } from '../../../../config/features';
 import { Alert } from 'react-native';
@@ -62,8 +60,6 @@ export const WaterChemistryStep: React.FC = () => {
     confidence?: number;
     message?: string;
   } | null>(null);
-  const [aiInsights, setAiInsights] = useState<string[]>([]);
-  const [isAnalyzingInsights, setIsAnalyzingInsights] = useState(false);
   const [analyzingImage, setAnalyzingImage] = useState(false);
   const [compressionProgress, setCompressionProgress] = useState<string | null>(null);
   const [measuredFields, setMeasuredFields] = useState<string[]>([]);
@@ -134,17 +130,8 @@ export const WaterChemistryStep: React.FC = () => {
         [field]: finalValue,
       });
       
-      // Get AI insights after saving
-      setIsAnalyzingInsights(true);
-      const insights = await AIInsightsService.getWaterChemistryInsights({
-        ...allValues,
-        [field]: finalValue,
-      });
-      setAiInsights(insights);
-      setIsAnalyzingInsights(false);
     } catch (error) {
       console.error('Failed to save water chemistry:', error);
-      setIsAnalyzingInsights(false);
     }
   };
   
@@ -482,12 +469,6 @@ export const WaterChemistryStep: React.FC = () => {
           </View>
         </View>
         
-        {/* AI Insights */}
-        <AIInsightsBox 
-          stepName="waterChemistry" 
-          insights={aiInsights}
-          isAnalyzing={isAnalyzingInsights}
-        />
       </ScrollView>
     </View>
   );

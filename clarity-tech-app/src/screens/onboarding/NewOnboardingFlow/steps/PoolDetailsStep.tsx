@@ -17,7 +17,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { EnhancedFloatingInput } from '../../../../components/ui/EnhancedFloatingInput';
 import { ModernSelect } from '../../../../components/ui/ModernSelect';
 import { AIPhotoAnalyzer } from '../../../../components/ui/AIPhotoAnalyzer';
-import { AIInsightsBox } from '../../../../components/common/AIInsightsBox';
 import { useOnboarding } from '../../../../contexts/OnboardingContext';
 import { theme } from '../../../../styles/theme';
 import { webAlert } from '../utils/webAlert';
@@ -825,6 +824,27 @@ const EnvironmentSection = memo(({
                 }
               }
 
+              // Fetch weather and pollen data
+              let weatherData = null;
+              if (session?.customerInfo?.address) {
+                try {
+                  console.log('🌤️ Fetching weather data for:', session.customerInfo.address);
+                  const weatherResponse = await apiClient.post('/ai/analyze-weather-pollen', {
+                    address: session.customerInfo.address,
+                  });
+                  
+                  if (weatherResponse.success) {
+                    weatherData = weatherResponse.data;
+                    console.log('🌤️ Weather data received:', {
+                      rainfall: weatherData.avgRainfall,
+                      pollen: weatherData.pollenData,
+                    });
+                  }
+                } catch (error) {
+                  console.error('Weather data fetch failed:', error);
+                }
+              }
+
               const response = await aiService.analyzeEnvironment(
                 photos,
                 session?.id || `session_${Date.now()}`
@@ -870,6 +890,32 @@ const EnvironmentSection = memo(({
                 handleFieldBlur('treeTypes', enhancedAnalysis.vegetation?.treeTypes?.join(', '));
                 handleFieldBlur('grassOrDirt', analysis.groundConditions?.surfaceType);
                 handleFieldBlur('sprinklerSystem', analysis.groundConditions?.sprinklersPresent);
+                
+                // Store comprehensive environment analysis
+                if (session?.customerInfo?.id) {
+                  const comprehensiveAnalysis = {
+                    timestamp: new Date().toISOString(),
+                    imageUri: photos[0],
+                    groundAnalysis: analysis,
+                    satelliteData: satelliteData,
+                    weatherData: weatherData,
+                    combinedTreeCount: combinedTreeCount,
+                    combinedTreeTypes: combinedTreeTypes,
+                  };
+                  
+                  await aiAnalysisStorage.saveAnalysis(
+                    session.customerInfo.id,
+                    'environment',
+                    comprehensiveAnalysis
+                  );
+                  
+                  console.log('🌍 Comprehensive Environment Analysis Stored:', {
+                    hasGroundData: !!analysis,
+                    hasSatelliteData: !!satelliteData,
+                    hasWeatherData: !!weatherData,
+                    treeCount: combinedTreeCount,
+                  });
+                }
               }
             } catch (error) {
               console.error('Environment analysis failed:', error);
@@ -880,13 +926,18 @@ const EnvironmentSection = memo(({
       />
     </View>
     
-    {/* AI Results Display */}
+    {/* AI Analysis Status - Consistent with Surface */}
     {environmentPhotos && environmentPhotos.length > 0 && (
-      <View style={styles.aiResultsCard}>
-        <Text style={styles.aiResultsTitle}>Environment Analysis Complete</Text>
-        <Text style={styles.aiResultsText}>
-          AI has analyzed the surroundings and detected environmental factors that may affect pool maintenance.
-        </Text>
+      <View style={styles.aiAnalysisStatus}>
+        <LinearGradient
+          colors={[theme.colors.aiPink + '20', theme.colors.blueGreen + '20']}
+          style={styles.aiStatusGradient}
+        >
+          <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
+          <Text style={styles.aiStatusText}>
+            AI Environment Analysis Complete - Environmental factors saved for report
+          </Text>
+        </LinearGradient>
       </View>
     )}
   </View>
@@ -1049,6 +1100,21 @@ const DeckSection = memo(({
         allowBatchAnalysis={true}
       />
     </View>
+    
+    {/* AI Analysis Status */}
+    {deckPhotos && deckPhotos.length > 0 && (
+      <View style={styles.aiAnalysisStatus}>
+        <LinearGradient
+          colors={[theme.colors.aiPink + '20', theme.colors.blueGreen + '20']}
+          style={styles.aiStatusGradient}
+        >
+          <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
+          <Text style={styles.aiStatusText}>
+            AI Deck Analysis Complete - Deck condition saved for report
+          </Text>
+        </LinearGradient>
+      </View>
+    )}
     
     {/* Deck Material */}
     <Text style={styles.fieldLabel}>Deck Surface Material</Text>
@@ -1856,12 +1922,6 @@ export const PoolDetailsStep: React.FC = () => {
             )}
           </View>
         ))}
-        
-        <AIInsightsBox 
-          stepName="poolDetails" 
-          insights={aiInsights}
-          isAnalyzing={isAnalyzingInsights}
-        />
       </ScrollView>
     </View>
       </FormProvider>

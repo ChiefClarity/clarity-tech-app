@@ -12,12 +12,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useOnboarding } from '../../../../contexts/OnboardingContext';
 import { EnhancedFloatingInput } from '../../../../components/ui/EnhancedFloatingInput';
 import { AIPhotoAnalyzer } from '../../../../components/ui/AIPhotoAnalyzer';
-import { AIInsightsBox } from '../../../../components/common/AIInsightsBox';
 import { theme } from '../../../../styles/theme';
 import { webAlert } from '../utils/webAlert';
 import { aiService } from '../../../../services/api/ai';
 import { FEATURES } from '../../../../config/features';
-import { AIInsightsService } from '../../../../services/ai/aiInsights';
 import { Alert } from 'react-native';
 import { EquipmentAnalysisMapper } from '../../../../services/ai/equipmentAnalysisMapper';
 
@@ -92,8 +90,6 @@ export const EquipmentStep: React.FC = () => {
     confidence?: number;
     message?: string;
   } | null>(null);
-  const [aiInsights, setAiInsights] = useState<string[]>([]);
-  const [isAnalyzingInsights, setIsAnalyzingInsights] = useState(false);
   const [compressionProgress, setCompressionProgress] = useState<string | null>(null);
   const [equipmentData, setEquipmentData] = useState(session?.equipment || {
     photos: [],
@@ -381,12 +377,6 @@ export const EquipmentStep: React.FC = () => {
         </View>
       ))}
       
-      {/* AI Insights */}
-      <AIInsightsBox 
-        stepName="equipment" 
-        insights={aiInsights}
-        isAnalyzing={isAnalyzingInsights}
-      />
       
       {/* Bottom padding */}
       <View style={{ height: 100 }} />
