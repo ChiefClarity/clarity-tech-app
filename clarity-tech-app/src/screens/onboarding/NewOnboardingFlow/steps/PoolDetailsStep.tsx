@@ -450,9 +450,9 @@ const SizeShapeSection = memo(({
         }}
       >
         <Ionicons 
-          name={POOL_ICONS.inground} 
+          name={POOL_ICONS.water} 
           size={24} 
-          color={poolType === 'inground' ? theme.colors.white : theme.colors.primary} 
+          color={poolType === 'inground' ? theme.colors.white : theme.colors.darkBlue} 
         />
         <Text style={[
           styles.typeButtonText,
@@ -473,9 +473,9 @@ const SizeShapeSection = memo(({
         }}
       >
         <Ionicons 
-          name={POOL_ICONS.aboveGround} 
+          name={POOL_ICONS.water} 
           size={24} 
-          color={poolType === 'aboveGround' ? theme.colors.white : theme.colors.primary} 
+          color={poolType === 'aboveGround' ? theme.colors.white : theme.colors.darkBlue} 
         />
         <Text style={[
           styles.typeButtonText,
@@ -750,8 +750,8 @@ const SurfaceSection = memo(({
           <TouchableOpacity
             key={condition}
             style={[
-              styles.conditionOption,
-              surfaceCondition === condition && styles.conditionOptionActive
+              styles.optionButton,
+              surfaceCondition === condition && styles.optionButtonActive
             ]}
             onPress={() => {
               setValue('surfaceCondition', condition);
@@ -759,8 +759,8 @@ const SurfaceSection = memo(({
             }}
           >
             <Text style={[
-              styles.conditionText,
-              surfaceCondition === condition && styles.conditionTextActive
+              styles.optionText,
+              surfaceCondition === condition && styles.optionTextActive
             ]}>
               {condition.charAt(0).toUpperCase() + condition.slice(1)}
             </Text>
@@ -772,7 +772,7 @@ const SurfaceSection = memo(({
       {surfacePhotos.length > 0 && (
         <View style={styles.aiAnalysisStatus}>
           <LinearGradient
-            colors={[theme.colors.aiPink + '20', theme.colors.aiBlue + '20']}
+            colors={[theme.colors.aiPink + '20', theme.colors.blueGreen + '20']}
             style={styles.aiStatusGradient}
           >
             <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
@@ -2314,7 +2314,7 @@ const styles = StyleSheet.create({
   aiStatusText: {
     marginLeft: theme.spacing.sm,
     fontSize: theme.typography.body.fontSize,
-    color: theme.colors.text.primary,
+    color: theme.colors.darkBlue,
     fontWeight: '500',
   },
   inputContainer: {
