@@ -8,6 +8,7 @@ import {
   Platform,
   ActivityIndicator
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useForm, Controller, useFormContext, FormProvider, useWatch, Control, UseFormSetValue, UseFormGetValues, FieldErrors, UseFormTrigger } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -82,6 +83,7 @@ interface EnvironmentSectionProps {
   control: FormControl;
   errors?: FieldErrors<PoolDetailsData>;
   setValue: UseFormSetValue<PoolDetailsData>;
+  getValues: UseFormGetValues<PoolDetailsData>;
   handleFieldBlur: (field: string, value: any) => void;
   environmentPhotos: string[];
   setEnvironmentPhotos: (photos: string[]) => void;
@@ -708,6 +710,30 @@ const SurfaceSection = memo(({
                       handleFieldBlur(field, value);
                     }
                   });
+                  
+                  // Store surface analysis
+                  if (session?.customerInfo?.id) {
+                    const surfaceStorageData = {
+                      timestamp: new Date().toISOString(),
+                      imageUris: photos,
+                      analysis: analysis,
+                    };
+                    
+                    await aiAnalysisStorage.saveAnalysis(
+                      session.customerInfo.id,
+                      'surface',
+                      surfaceStorageData
+                    );
+                    
+                    console.log('💾 Surface Analysis Stored Successfully');
+                    console.log('🔍 SURFACE STORAGE VERIFICATION:', {
+                      imageCount: photos.length,
+                      material: analysis.material,
+                      condition: analysis.condition,
+                      issuesDetected: Object.keys(analysis.issues || {}).filter(k => analysis.issues[k]).length,
+                      issues: analysis.issues,
+                    });
+                  }
                 }
               } catch (error) {
                 console.error('Surface analysis failed:', error);
@@ -789,6 +815,7 @@ const EnvironmentSection = memo(({
   control, 
   errors, 
   setValue, 
+  getValues,
   handleFieldBlur,
   environmentPhotos,
   setEnvironmentPhotos,
@@ -992,6 +1019,51 @@ const EnvironmentSection = memo(({
                   
                   console.log('💾 Comprehensive Environment Analysis Stored Successfully');
                 }
+
+                // ADD COMPREHENSIVE LOGGING FOR DATA STORAGE
+                console.log('🔍 VERIFYING DATA STORAGE...');
+                
+                // Check what's being stored
+                console.log('📊 Storage Data Structure:', {
+                  hasTimestamp: !!storageData.timestamp,
+                  imageCount: storageData.imageUris?.length || 0,
+                  hasGroundAnalysis: !!storageData.groundAnalysis,
+                  hasSatelliteData: !!storageData.satelliteData,
+                  hasWeatherData: !!storageData.weatherData,
+                  hasCombinedInsights: !!storageData.combinedInsights,
+                });
+                
+                // Verify AsyncStorage keys
+                try {
+                  const allKeys = await AsyncStorage.getAllKeys();
+                  const aiKeys = allKeys.filter(key => key.includes('ai_analysis'));
+                  console.log('🗄️ AI Analysis Storage Keys:', aiKeys);
+                  
+                  // Check if data was actually saved
+                  if (session?.customerInfo?.id) {
+                    const retrievedData = await aiAnalysisStorage.getAnalysis(
+                      session.customerInfo.id,
+                      'environment'
+                    );
+                    console.log('✅ Retrieved Environment Analysis:', {
+                      success: !!retrievedData,
+                      hasData: !!retrievedData?.groundAnalysis,
+                      storedImageCount: retrievedData?.imageUris?.length || 0,
+                      timestamp: retrievedData?.timestamp,
+                    });
+                  }
+                } catch (storageError) {
+                  console.error('❌ Storage verification failed:', storageError);
+                }
+                
+                console.log('📋 Form Values After Analysis:', {
+                  nearbyTrees: getValues('nearbyTrees'),
+                  treeTypes: getValues('treeTypes'),
+                  grassOrDirt: getValues('grassOrDirt'),
+                  sprinklerSystem: getValues('sprinklerSystem'),
+                  screenEnclosure: getValues('screenEnclosure'),
+                  poolOrientation: getValues('poolOrientation'),
+                });
               }
             } catch (error) {
               console.error('Environment analysis failed:', error);
@@ -1068,6 +1140,33 @@ const SkimmersSection = memo(({
                     handleFieldBlur(`skimmer${index + 1}LidCondition`, analysis.skimmers[index].lidCondition);
                   }
                 });
+                
+                // Store skimmer analysis
+                if (session?.customerInfo?.id) {
+                  const skimmerStorageData = {
+                    timestamp: new Date().toISOString(),
+                    imageUris: photos,
+                    analysis: analysis,
+                    skimmerCount: photos.length,
+                  };
+                  
+                  await aiAnalysisStorage.saveAnalysis(
+                    session.customerInfo.id,
+                    'skimmers',
+                    skimmerStorageData
+                  );
+                  
+                  console.log('💾 Skimmer Analysis Stored Successfully');
+                  console.log('🔍 SKIMMER STORAGE VERIFICATION:', {
+                    imageCount: photos.length,
+                    detectedSkimmers: analysis.skimmers?.length || 0,
+                    skimmerConditions: analysis.skimmers?.map((s: any, i: number) => ({
+                      skimmer: i + 1,
+                      basket: s.basketCondition,
+                      lid: s.lidCondition,
+                    })),
+                  });
+                }
               }
             } catch (error) {
               console.error('Skimmer analysis failed:', error);
@@ -1167,6 +1266,29 @@ const DeckSection = memo(({
                 // Handle field blur
                 handleFieldBlur('deckMaterial', analysis.material);
                 handleFieldBlur('deckCleanliness', analysis.cleanliness);
+                
+                // Store deck analysis
+                if (session?.customerInfo?.id) {
+                  const deckStorageData = {
+                    timestamp: new Date().toISOString(),
+                    imageUris: photos,
+                    analysis: analysis,
+                  };
+                  
+                  await aiAnalysisStorage.saveAnalysis(
+                    session.customerInfo.id,
+                    'deck',
+                    deckStorageData
+                  );
+                  
+                  console.log('💾 Deck Analysis Stored Successfully');
+                  console.log('🔍 DECK STORAGE VERIFICATION:', {
+                    imageCount: photos.length,
+                    material: analysis.material,
+                    condition: analysis.condition,
+                    cleanliness: analysis.cleanliness,
+                  });
+                }
               }
             } catch (error) {
               console.error('Deck analysis failed:', error);
@@ -1964,6 +2086,7 @@ export const PoolDetailsStep: React.FC = () => {
                     control={control}
                     errors={errors}
                     setValue={setValue}
+                    getValues={getValues}
                     handleFieldBlur={handleFieldBlur}
                     environmentPhotos={environmentPhotos}
                     setEnvironmentPhotos={setEnvironmentPhotos}

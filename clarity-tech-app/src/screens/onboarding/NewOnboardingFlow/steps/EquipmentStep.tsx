@@ -18,6 +18,7 @@ import { aiService } from '../../../../services/api/ai';
 import { FEATURES } from '../../../../config/features';
 import { Alert } from 'react-native';
 import { EquipmentAnalysisMapper } from '../../../../services/ai/equipmentAnalysisMapper';
+import { aiAnalysisStorage } from '../../../../services/aiAnalysis/storage';
 
 // CRITICAL: Equipment sections in EXACT order
 const EQUIPMENT_SECTIONS = [
@@ -212,6 +213,48 @@ export const EquipmentStep: React.FC = () => {
           }
           if (analysis.sanitizer) {
             console.log('🔧 Sanitizer detected:', analysis.sanitizer);
+          }
+          
+          // Comprehensive storage logging
+          console.log('💾 EQUIPMENT ANALYSIS STORAGE:', {
+            totalImages: photos.length,
+            equipmentDetected: analysis.detectedEquipment?.length || 0,
+            types: analysis.detectedEquipment?.map(eq => eq.type) || [],
+            mappedData: {
+              pump: !!equipmentData.pumpType,
+              filter: !!equipmentData.filterType,
+              sanitizer: !!equipmentData.sanitizerType,
+              heater: !!equipmentData.heaterType,
+            },
+            storedInSession: !!session?.equipment,
+          });
+          
+          console.log('🔍 EQUIPMENT FORM VALUES:', {
+            pumpType: equipmentData.pumpType,
+            pumpManufacturer: equipmentData.pumpManufacturer,
+            filterType: equipmentData.filterType,
+            filterManufacturer: equipmentData.filterManufacturer,
+            sanitizerType: equipmentData.sanitizerType,
+            heaterType: equipmentData.heaterType,
+            timerType: equipmentData.timerType,
+          });
+          
+          // Store equipment analysis
+          if (session?.customerInfo?.id) {
+            const equipmentStorageData = {
+              timestamp: new Date().toISOString(),
+              imageUris: photos,
+              analysis: analysis,
+              mappedData: equipmentData,
+            };
+            
+            await aiAnalysisStorage.saveAnalysis(
+              session.customerInfo.id,
+              'equipment',
+              equipmentStorageData
+            );
+            
+            console.log('💾 Equipment Analysis Saved to AI Storage');
           }
         } else {
           throw new Error('AI analysis failed - no data returned');

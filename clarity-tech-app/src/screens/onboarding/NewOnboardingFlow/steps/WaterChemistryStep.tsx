@@ -15,6 +15,7 @@ import { webAlert } from '../utils/webAlert';
 import { aiService } from '../../../../services/api/ai';
 import { FEATURES } from '../../../../config/features';
 import { Alert } from 'react-native';
+import { aiAnalysisStorage } from '../../../../services/aiAnalysis/storage';
 
 // EXACT validation schema from current implementation
 const waterChemistrySchema = z.object({
@@ -277,6 +278,31 @@ export const WaterChemistryStep: React.FC = () => {
                     confidence: result.data.analysis?.confidence,
                     message: `Successfully analyzed ${detectedChemicals.length} parameters`
                   });
+                  
+                  // Store test strip analysis
+                  if (session?.customerInfo?.id) {
+                    const testStripStorageData = {
+                      timestamp: new Date().toISOString(),
+                      imageUri: photos[0],
+                      analysis: result.data,
+                      readings: readings,
+                      detectedChemicals: detectedChemicals,
+                    };
+                    
+                    await aiAnalysisStorage.saveAnalysis(
+                      session.customerInfo.id,
+                      'testStrip',
+                      testStripStorageData
+                    );
+                    
+                    console.log('💾 TEST STRIP ANALYSIS STORAGE:', {
+                      imageAnalyzed: true,
+                      chemicalsDetected: detectedChemicals.length,
+                      readings: readings,
+                      confidence: result.data.analysis?.confidence,
+                      aiProvider: result.data.analyzedBy || 'unknown',
+                    });
+                  }
                 } else {
                   const errorMsg = result.error || 'Unable to analyze test strip';
                   console.error('❌ AI Analysis failed:', errorMsg);
