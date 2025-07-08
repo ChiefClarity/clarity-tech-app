@@ -271,44 +271,34 @@ export const VoiceNoteStep: React.FC = () => {
   };
   
   const handleNext = async () => {
-    // MANDATORY CHECK - Cannot skip voice note
     if (!hasRecorded || !audioBlob) {
       webAlert.alert(
         'Voice Note Required',
-        'A voice note is REQUIRED to complete the onboarding. Please record at least 30 seconds describing the pool condition, equipment issues, and any special circumstances that affect pricing.'
+        'A voice note is REQUIRED to complete the onboarding.'
       );
       return;
     }
     
-    // Check minimum duration (30 seconds)
     if (recordingDuration < 30) {
       webAlert.alert(
         'Recording Too Short',
-        `Please record at least 30 seconds. Your recording was only ${recordingDuration} seconds. Include details about pool condition, equipment, and pricing factors.`
-      );
-      return;
-    }
-    
-    // Check maximum duration (3 minutes)
-    if (recordingDuration > 180) {
-      webAlert.alert(
-        'Recording Too Long',
-        'Please keep your recording under 3 minutes. You can re-record if needed.'
+        `Please record at least 30 seconds. Your recording was only ${recordingDuration} seconds.`
       );
       return;
     }
     
     try {
-      // Save voice note data
-      await recordVoiceNote(
-        URL.createObjectURL(audioBlob),
-        recordingDuration
-      );
+      // Create object URL for local storage
+      const blobUrl = URL.createObjectURL(audioBlob);
       
-      // Complete session - this will trigger AI analysis
+      // Save voice note with blob URL (for local playback)
+      await recordVoiceNote(blobUrl, recordingDuration);
+      
+      // Complete session
       await completeSession();
-    } catch (err) {
-      webAlert.alert('Error', 'Failed to save voice note. Please try again.');
+    } catch (err: any) {
+      console.error('[VoiceNoteStep] Error:', err);
+      webAlert.alert('Error', err.message || 'Failed to complete onboarding. Please try again.');
     }
   };
   

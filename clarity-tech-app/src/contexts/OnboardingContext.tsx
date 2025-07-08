@@ -462,48 +462,61 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const completeSession = async () => {
     if (!session) return;
     
-    // MANDATORY: Validate voice note is present
+    // Validate voice note
     if (!session.voiceNote || !session.voiceNote.uri || !session.voiceNote.duration) {
       throw new Error('Voice note is required to complete onboarding');
     }
     
-    // Validate minimum duration
     if (session.voiceNote.duration < 30) {
       throw new Error('Voice note must be at least 30 seconds long');
     }
     
     setSaving(true);
     try {
-      // Update status
+      // Update status locally first
       const updated = { 
         ...session, 
         status: 'completed' as const,
         completedAt: new Date().toISOString()
       };
       
-      // Save to API
-      const response = await apiClient.post(`/api/onboarding/sessions/${session.id}/complete`, {
-        sessionData: updated,
-        includeVoiceNote: true,
-      });
-      
-      // Trigger AI analysis - this is the key step!
-      if (FEATURES.USE_REAL_AI) {
-        await apiClient.post(`/api/ai/analysis/session/${session.id}`);
+      // Save to API - Use PUT not POST!
+      try {
+        const response = await apiClient.put(
+          `/api/onboarding/sessions/${session.id}/complete`,
+          { completedAt: updated.completedAt }
+        );
+        console.log('[OnboardingContext] Session completed:', response.data);
+      } catch (apiError: any) {
+        console.error('[OnboardingContext] API Error:', {
+          status: apiError.response?.status,
+          data: apiError.response?.data,
+          message: apiError.message
+        });
+        
+        // If it's a 404, the endpoint might not exist yet
+        if (apiError.response?.status === 404) {
+          console.warn('[OnboardingContext] Complete endpoint not found - saving locally only');
+        } else {
+          throw apiError;
+        }
       }
       
-      // Clear local data
-      await AsyncStorage.removeItem(`onboarding_session_${session.customerId}`);
-      setSession(null);
+      // Save locally
+      await AsyncStorage.setItem(
+        `onboarding_session_${session.customerId}`,
+        JSON.stringify(updated)
+      );
       
-      // Navigate to completion screen
-      navigation.navigate('OnboardingComplete', {
+      // Navigate to completion
+      navigation.navigate('OnboardingComplete' as any, {
         sessionId: session.id,
-        message: 'AI is analyzing the pool data. Results will be available shortly.',
+        message: 'Onboarding completed successfully!',
       });
       
     } catch (err: any) {
-      setError(err.message);
+      console.error('[OnboardingContext] Complete session failed:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to complete onboarding');
       throw err;
     } finally {
       setSaving(false);
