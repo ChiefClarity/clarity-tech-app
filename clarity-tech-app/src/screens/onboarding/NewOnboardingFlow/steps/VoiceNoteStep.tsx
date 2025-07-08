@@ -18,6 +18,20 @@ export const VoiceNoteStep: React.FC = () => {
   const [recordingError, setRecordingError] = useState<string>('');
   const [playbackError, setPlaybackError] = useState<string>('');
   
+  // Debug logging on state changes
+  useEffect(() => {
+    console.log('[VoiceNoteStep] State updated:', {
+      hasRecorded,
+      hasAudioBlob: !!audioBlob,
+      audioBlobType: audioBlob?.type,
+      audioBlobSize: audioBlob?.size,
+      recordingDuration,
+      sessionHasVoiceNote: !!session?.voiceNote,
+      sessionVoiceNoteUri: session?.voiceNote?.uri,
+      sessionVoiceNoteDuration: session?.voiceNote?.duration
+    });
+  }, [hasRecorded, audioBlob, recordingDuration, session?.voiceNote]);
+  
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const timerRef = useRef<number | null>(null);
@@ -93,53 +107,90 @@ export const VoiceNoteStep: React.FC = () => {
       };
 
       mediaRecorder.onstop = async () => {
-        // Stop all tracks
-        stream.getTracks().forEach(track => track.stop());
-        
-        // Clear timer
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-        }
-        
-        // Use actual elapsed time for validation
-        const actualDuration = Math.floor((Date.now() - startTime) / 1000);
-        
-        // Create blob from chunks
-        // Use the actual mimeType that was used for recording
-        const blob = new Blob(chunks, { type: recordingMimeType });
-        console.log('[VoiceNote] Created blob with type:', blob.type, 'size:', blob.size);
-        setAudioBlob(blob);
-        
-        // Check duration with actual time
-        if (actualDuration < 30) {
-          // Show inline message instead of alert
-          setRecordingError('Please record at least 30 seconds of observations about the pool.');
+        try {
+          // Stop all tracks first
+          stream.getTracks().forEach(track => track.stop());
+          
+          // Clear timer
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          
+          // Calculate actual duration from timestamps
+          const actualDuration = Math.floor((Date.now() - startTime) / 1000);
+          
+          // Create blob from chunks
+          const blob = new Blob(chunks, { type: recordingMimeType });
+          
+          console.log('[VoiceNote] Recording stopped:', {
+            actualDuration,
+            blobSize: blob.size,
+            blobType: blob.type,
+            chunksCount: chunks.length,
+          });
+          
+          // Validate duration BEFORE any state updates
+          if (actualDuration < 30) {
+            setRecordingError('Recording must be at least 30 seconds. Please try again.');
+            setRecordingDuration(0);
+            setAudioBlob(null);
+            setHasRecorded(false);
+            return;
+          }
+          
+          if (actualDuration > 180) {
+            setRecordingError('Recording exceeded 3 minutes. Please try again.');
+            setRecordingDuration(0);
+            setAudioBlob(null);
+            setHasRecorded(false);
+            return;
+          }
+          
+          // Set state with the actual duration
+          setRecordingDuration(actualDuration);
+          setAudioBlob(blob);
+          
+          // Convert to base64 and save
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+            try {
+              const base64 = reader.result as string;
+              
+              console.log('[VoiceNote] Saving recording:', {
+                duration: actualDuration,
+                base64Length: base64.length,
+              });
+              
+              // Save with the actual duration
+              await recordVoiceNote(base64, actualDuration);
+              
+              // Only set hasRecorded after successful save
+              setHasRecorded(true);
+              
+              console.log('[VoiceNote] Recording saved successfully');
+            } catch (error) {
+              console.error('[VoiceNote] Failed to save recording:', error);
+              setRecordingError('Failed to save recording. Please try again.');
+              setHasRecorded(false);
+            }
+          };
+          
+          reader.onerror = () => {
+            console.error('[VoiceNote] Failed to read blob');
+            setRecordingError('Failed to process recording. Please try again.');
+            setHasRecorded(false);
+          };
+          
+          reader.readAsDataURL(blob);
+          
+        } catch (error) {
+          console.error('[VoiceNote] Error in stop handler:', error);
+          setRecordingError('Recording failed. Please try again.');
           setRecordingDuration(0);
           setAudioBlob(null);
           setHasRecorded(false);
-          return;
         }
-        
-        if (recordingDuration > 180) {
-          webAlert.alert(
-            'Recording Too Long',
-            'Please keep your recording under 3 minutes.',
-            [{ text: 'OK' }]
-          );
-          setRecordingDuration(0);
-          setAudioBlob(null);
-          return;
-        }
-        
-        // Convert blob to base64 for storage
-        const reader = new FileReader();
-        reader.readAsDataURL(blob);
-        reader.onloadend = async () => {
-          const base64 = reader.result as string;
-          await recordVoiceNote(base64, recordingDuration);
-          setHasRecorded(true);
-          // Success - no popup needed
-        };
       };
 
       mediaRecorderRef.current = mediaRecorder;

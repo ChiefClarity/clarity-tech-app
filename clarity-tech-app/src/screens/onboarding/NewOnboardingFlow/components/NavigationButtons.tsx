@@ -16,6 +16,11 @@ export const NavigationButtons: React.FC<NavigationButtonsProps> = ({
   const { currentStep, previousStep, nextStep, canNavigateForward } = useOnboarding();
   
   const handleNext = () => {
+    console.log('[NavigationButtons] handleNext clicked:', {
+      hasOnComplete: !!onComplete,
+      currentStep,
+      canNavigateForward
+    });
     if (onComplete) {
       onComplete();
     } else {

@@ -79,8 +79,21 @@ const OnboardingFlowContent: React.FC = () => {
   };
   
   const handleComplete = async () => {
+    console.log('[OnboardingFlow] handleComplete called with session state:', {
+      hasSession: !!session,
+      hasVoiceNote: !!session?.voiceNote,
+      voiceNoteUri: session?.voiceNote?.uri,
+      voiceNoteDuration: session?.voiceNote?.duration,
+      currentStep,
+      sessionData: session
+    });
+    
     // Validate voice note before completing
     if (!session?.voiceNote || (session.voiceNote.duration < 30)) {
+      console.log('[OnboardingFlow] Voice note validation failed:', {
+        hasVoiceNote: !!session?.voiceNote,
+        duration: session?.voiceNote?.duration
+      });
       webAlert.alert(
         'Voice Note Required',
         'Please record at least 30 seconds of observations about the pool before completing.',
@@ -90,7 +103,9 @@ const OnboardingFlowContent: React.FC = () => {
     }
     
     try {
+      console.log('[OnboardingFlow] Calling completeSession...');
       await completeSession();
+      console.log('[OnboardingFlow] completeSession succeeded');
       // Navigation to OnboardingComplete is handled by the context
     } catch (err: any) {
       console.error('[OnboardingFlow] Error completing session:', err);
