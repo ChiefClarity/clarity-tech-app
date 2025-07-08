@@ -9,7 +9,7 @@ import { theme } from '../../../../styles/theme';
 import { webAlert } from '../utils/webAlert';
 
 export const VoiceNoteStep: React.FC = () => {
-  const { session, recordVoiceNote, completeSession } = useOnboarding();
+  const { session, recordVoiceNote } = useOnboarding();
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [hasRecorded, setHasRecorded] = useState(false);
@@ -20,8 +20,9 @@ export const VoiceNoteStep: React.FC = () => {
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<number | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  
   
   // Check if we already have a recording
   useEffect(() => {
@@ -149,7 +150,7 @@ export const VoiceNoteStep: React.FC = () => {
 
       // Start duration timer with proper ref
       let seconds = 0;
-      timerRef.current = setInterval(() => {
+      timerRef.current = window.setInterval(() => {
         seconds = Math.floor((Date.now() - startTime) / 1000); // Use actual elapsed time
         setRecordingDuration(seconds);
         
@@ -270,37 +271,6 @@ export const VoiceNoteStep: React.FC = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
   
-  const handleNext = async () => {
-    if (!hasRecorded || !audioBlob) {
-      webAlert.alert(
-        'Voice Note Required',
-        'A voice note is REQUIRED to complete the onboarding.'
-      );
-      return;
-    }
-    
-    if (recordingDuration < 30) {
-      webAlert.alert(
-        'Recording Too Short',
-        `Please record at least 30 seconds. Your recording was only ${recordingDuration} seconds.`
-      );
-      return;
-    }
-    
-    try {
-      // Create object URL for local storage
-      const blobUrl = URL.createObjectURL(audioBlob);
-      
-      // Save voice note with blob URL (for local playback)
-      await recordVoiceNote(blobUrl, recordingDuration);
-      
-      // Complete session
-      await completeSession();
-    } catch (err: any) {
-      console.error('[VoiceNoteStep] Error:', err);
-      webAlert.alert('Error', err.message || 'Failed to complete onboarding. Please try again.');
-    }
-  };
   
   const reRecord = () => {
     setHasRecorded(false);
@@ -672,7 +642,7 @@ const styles = StyleSheet.create({
   playbackNote: {
     marginTop: 8,
     fontSize: 12,
-    color: theme.colors.secondary,
+    color: theme.colors.gray,
     textAlign: 'center',
   },
 });

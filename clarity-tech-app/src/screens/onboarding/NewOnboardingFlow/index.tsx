@@ -79,15 +79,22 @@ const OnboardingFlowContent: React.FC = () => {
   };
   
   const handleComplete = async () => {
+    // Validate voice note before completing
+    if (!session?.voiceNote || (session.voiceNote.duration < 30)) {
+      webAlert.alert(
+        'Voice Note Required',
+        'Please record at least 30 seconds of observations about the pool before completing.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
     try {
       await completeSession();
-      webAlert.alert(
-        'Success!',
-        'Onboarding completed successfully. The customer will receive their report within 24 hours.',
-        [{ text: 'OK', onPress: () => navigation.navigate('Dashboard' as never) }]
-      );
-    } catch (err) {
-      webAlert.alert('Error', 'Failed to complete onboarding. Please try again.');
+      // Navigation to OnboardingComplete is handled by the context
+    } catch (err: any) {
+      console.error('[OnboardingFlow] Error completing session:', err);
+      webAlert.alert('Error', err.message || 'Failed to complete onboarding. Please try again.');
     }
   };
   
