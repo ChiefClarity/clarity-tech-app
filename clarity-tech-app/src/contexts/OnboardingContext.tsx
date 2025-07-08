@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FEATURES } from '../config/features';
 import { apiClient } from '../services/api/client';
 import { useNavigation } from '@react-navigation/native';
+import { onboardingService } from '../services/api/onboarding';
 
 // CRITICAL: These MUST match existing field names exactly
 interface CustomerInfo {
@@ -480,40 +481,48 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     
     setSaving(true);
     try {
-      // Update status locally first
-      const updated = { 
-        ...session, 
-        status: 'completed' as const,
-        completedAt: new Date().toISOString()
-      };
-      
-      // Save to API - Use PUT not POST!
-      try {
-        const response = await apiClient.put(
-          `/api/onboarding/sessions/${session.id}/complete`,
-          { completedAt: updated.completedAt }
-        );
-        console.log('[OnboardingContext] Session completed:', response.data);
-      } catch (apiError: any) {
-        console.error('[OnboardingContext] API Error:', {
-          status: apiError.response?.status,
-          data: apiError.response?.data,
-          message: apiError.message
-        });
+      // Step 1: Upload voice note if it's still base64
+      if (session.voiceNote.uri.startsWith('data:')) {
+        console.log('[OnboardingContext] Uploading voice note...');
         
-        // If it's a 404, the endpoint might not exist yet
-        if (apiError.response?.status === 404) {
-          console.warn('[OnboardingContext] Complete endpoint not found - saving locally only');
-        } else {
-          throw apiError;
+        // Convert base64 to blob
+        const base64Response = await fetch(session.voiceNote.uri);
+        const blob = await base64Response.blob();
+        
+        // Create FormData
+        const formData = new FormData();
+        formData.append('audio', blob, 'voice-note.webm');
+        formData.append('duration', session.voiceNote.duration.toString());
+        
+        // Upload using existing service
+        const uploadResponse = await onboardingService.uploadVoiceNote(
+          session.id,
+          formData
+        );
+        
+        if (!uploadResponse.success) {
+          throw new Error('Failed to upload voice note');
         }
+        
+        console.log('[OnboardingContext] Voice note uploaded:', uploadResponse.data);
       }
       
-      // Save locally
-      await AsyncStorage.setItem(
-        `onboarding_session_${session.customerId}`,
-        JSON.stringify(updated)
+      // Step 2: Complete session with timestamp
+      const completedAt = new Date().toISOString();
+      
+      const response = await onboardingService.completeSession(
+        session.id,
+        { completedAt }
       );
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to complete session');
+      }
+      
+      console.log('[OnboardingContext] Session completed:', response.data);
+      
+      // Clear local storage
+      await AsyncStorage.removeItem(`onboarding_session_${session.customerId}`);
       
       // Navigate to completion
       navigation.navigate('OnboardingComplete' as any, {
@@ -523,7 +532,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       
     } catch (err: any) {
       console.error('[OnboardingContext] Complete session failed:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to complete onboarding');
+      setError(err.message || 'Failed to complete onboarding');
       throw err;
     } finally {
       setSaving(false);

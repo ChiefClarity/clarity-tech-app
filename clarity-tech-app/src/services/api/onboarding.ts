@@ -146,32 +146,50 @@ export const onboardingService = {
       const endpoint = API_ENDPOINTS.ONBOARDING.UPLOAD_VOICE.replace(':id', sessionId);
       return apiClient.upload<VoiceNoteUploadResponse>(endpoint, audio);
     } else {
-      // Mock implementation
+      // Enhanced mock following backend response pattern
       await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const duration = parseInt(audio.get('duration') as string) || 45;
+      
       return {
         success: true,
         data: {
           id: `voice-${Date.now()}`,
-          url: 'https://example.com/voice.mp3',
-          duration: 45
-        }
+          url: `https://clarity-pool-uploads.s3.amazonaws.com/voice-notes/${sessionId}.webm`,
+          duration,
+          transcription: '[Voice note saved - transcription pending]',
+          summary: 'Voice note recorded successfully',
+          audioUrl: `https://clarity-pool-uploads.s3.amazonaws.com/voice-notes/${sessionId}.webm`,
+          timestamp: new Date().toISOString(),
+          metadata: {
+            sessionId,
+            language: 'en-US',
+            aiModel: 'mock'
+          }
+        } as any
       };
     }
   },
 
-  async completeSession(sessionId: string): Promise<ApiResponse<OnboardingSession>> {
+  async completeSession(sessionId: string, data?: { completedAt: string }): Promise<ApiResponse<OnboardingSession>> {
     if (FEATURES.USE_REAL_ONBOARDING) {
       const endpoint = API_ENDPOINTS.ONBOARDING.COMPLETE.replace(':id', sessionId);
-      return apiClient.post<OnboardingSession>(endpoint);
+      // CRITICAL: Use PUT, not POST - matches backend expectation
+      return apiClient.put<OnboardingSession>(endpoint, data || { 
+        completedAt: new Date().toISOString() 
+      });
     } else {
-      // Mock implementation
+      // Mock implementation following your pattern
       const stored = await this.getOfflineSession(sessionId);
       if (stored) {
         stored.status = 'completed';
         stored.completedAt = new Date();
         await this.saveOfflineSession(sessionId, stored);
       }
-      return { success: true, data: stored as OnboardingSession };
+      return { 
+        success: true, 
+        data: stored as OnboardingSession 
+      };
     }
   },
 
