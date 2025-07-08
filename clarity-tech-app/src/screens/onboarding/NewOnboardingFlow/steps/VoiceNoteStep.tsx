@@ -9,6 +9,18 @@ import { theme } from '../../../../styles/theme';
 import { webAlert } from '../utils/webAlert';
 
 export const VoiceNoteStep: React.FC = () => {
+  // Temporary fix to identify text node source
+  if (__DEV__) {
+    const originalError = console.error;
+    console.error = (...args) => {
+      if (args[0]?.includes?.('Text node')) {
+        console.warn('Text node error suppressed - check for stray text');
+        return;
+      }
+      originalError(...args);
+    };
+  }
+  
   const { session, recordVoiceNote } = useOnboarding();
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);

@@ -11,6 +11,11 @@ const AuthNavigator = lazy(() => import('./AuthNavigator').then(m => ({ default:
 const BottomTabNavigator = lazy(() => import('./BottomTabNavigator').then(m => ({ default: m.BottomTabNavigator })));
 const NewOnboardingFlow = lazy(() => import('../screens/onboarding/NewOnboardingFlow').then(m => ({ default: m.NewOnboardingFlow })));
 const AcceptedOnboardingsScreen = lazy(() => import('../screens/onboarding/AcceptedOnboardingsScreen').then(m => ({ default: m.AcceptedOnboardingsScreen })));
+const OnboardingComplete = lazy(() => 
+  import('../screens/onboarding/OnboardingComplete').then(m => ({ 
+    default: m.OnboardingComplete 
+  }))
+);
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -25,6 +30,10 @@ export type RootStackParamList = {
     testMode?: boolean;
   };
   AcceptedOnboardings: undefined;
+  OnboardingComplete: {
+    sessionId: string;
+    message: string;
+  };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -105,6 +114,20 @@ export const AppNavigator: React.FC = () => {
               {() => (
                 <Suspense fallback={<LoadingSpinner fullScreen message="Loading..." />}>
                   <AcceptedOnboardingsScreen />
+                </Suspense>
+              )}
+            </Stack.Screen>
+            <Stack.Screen 
+              name="OnboardingComplete" 
+              options={{
+                title: 'Onboarding Complete',
+                headerShown: true,
+                gestureEnabled: false,
+              }}
+            >
+              {() => (
+                <Suspense fallback={<LoadingSpinner fullScreen message="Loading..." />}>
+                  <OnboardingComplete />
                 </Suspense>
               )}
             </Stack.Screen>
